@@ -12,6 +12,7 @@ Tables:
     email (string)
     loginName (string, unique)
     loginPassword (string)
+    npiNumber (string)
 2. children:
     id (integer, primary key)
     firstName (string)
@@ -21,6 +22,11 @@ Tables:
     referralDate (date)
     initialIfspDate (date)
     status (string)
+    sex (string)
+    address (string)
+    city (string)
+    state (string)
+    zipCode (string)
     coordinatorId (string, foreign key referencing serviceCoordinators.scId)
 3. contacts:
     id (integer, primary key)
@@ -62,3 +68,30 @@ One-to-many: authorizations to notes (one authorization can have many notes)
 Verification:
 
 For every note entity, there exists exactly one associated child entity and exactly one associated authorization entity. This is ensured by the `showNoteFormInline` function, which requires the selection of a child and an authorization when creating or editing a note.
+
+Field Constraints:
+- sex: Must be either "M" or "F"
+- state: Currently restricted to "NY" (New York)
+- zipCode: Must be a valid 5-digit code
+- npiNumber: National Provider Identifier, a unique 10-digit number
+
+Unit Calculation Rules:
+
+Authorization units are calculated based on billable notes using the following rules:
+
+1. Notes are grouped by date
+2. For each date:
+   - Total minutes are calculated from start and end times of all billable notes
+   - If total minutes < 6: No units are counted
+   - If total minutes ≥ 6:
+     * Subtract 5 minutes from total
+     * Divide remaining minutes by 15
+     * Round up to nearest whole number for final units
+
+Examples:
+- 5 minutes in a day = 0 units (below minimum threshold)
+- 10 minutes in a day = 1 unit ((10-5)/15 rounded up)
+- 40 minutes in a day = 3 units ((40-5)/15 rounded up)
+- 65 minutes in a day = 4 units ((65-5)/15 rounded up)
+
+The total units used for an authorization is the sum of units from all dates.

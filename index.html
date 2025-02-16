@@ -238,11 +238,10 @@ function applyFormat(command) {
 }
     // Get eligible authorizations for a child (status "open" and not expired)
     function getEligibleAuthorizations(childId) {
-      let auths = getData("authorizations").filter(a => 
-        a.childId === childId &&
-        a.status === "open" &&
-        a.endDate >= getTodayDate()
-      );
+      // Get all authorizations for the child without any filtering
+      let auths = getData("authorizations").filter(a => a.childId === childId);
+      
+      // Calculate units used/remaining for display purposes
       auths.forEach(a => {
         const notes = getData("notes").filter(n => 
           n.childId === childId &&
@@ -411,9 +410,9 @@ function applyFormat(command) {
           if (!localStorage.getItem("children") || getData("children").length === 0) {
             // If children data doesn't exist or is empty, create test children.
             let testChildren = [
-              { id: 1, firstName: "Jane", lastName: "Doe", nyeisId: "NY001", dob: "2018-05-10", referralDate: "2024-01-15", initialIfspDate: "2024-02-20", status: "open", coordinatorId: "test" },
-              { id: 2, firstName: "John", lastName: "Smith", nyeisId: "NY002", dob: "2017-11-22", referralDate: "2023-12-01", initialIfspDate: "2024-01-05", status: "open", coordinatorId: "test" },
-              { id: 3, firstName: "Emily", lastName: "Chen", nyeisId: "NY003", dob: "2019-02-01", referralDate: "2024-02-01", initialIfspDate: "2024-03-10", status: "open", coordinatorId: "test" }
+              { id: 1, firstName: "Jane", lastName: "Doe", nyeisId: "NY001", dob: "2018-05-10", referralDate: "2024-01-15", initialIfspDate: "2024-02-20", status: "open", coordinatorId: "test", sex: "F", address: "123 Main St", city: "New York", state: "NY", zipCode: "10001" },
+              { id: 2, firstName: "John", lastName: "Smith", nyeisId: "NY002", dob: "2017-11-22", referralDate: "2023-12-01", initialIfspDate: "2024-01-05", status: "open", coordinatorId: "test", sex: "M", address: "456 Park Ave", city: "Brooklyn", state: "NY", zipCode: "11201" },
+              { id: 3, firstName: "Emily", lastName: "Chen", nyeisId: "NY003", dob: "2019-02-01", referralDate: "2024-02-01", initialIfspDate: "2024-03-10", status: "open", coordinatorId: "test", sex: "F", address: "789 Broadway", city: "Queens", state: "NY", zipCode: "11355" }
             ];
             setData("children", testChildren); // Store the test children in local storage.
           }
@@ -627,6 +626,21 @@ function applyFormat(command) {
           <input type="date" id="childReferralDate" required value="${child ? child.referralDate : ""}"/>
           <label for="childInitialIfspDate">Initial IFSP Date (MM/DD/YYYY):</label>
           <input type="date" id="childInitialIfspDate" required value="${child ? child.initialIfspDate : ""}"/>
+          <label for="childSex">Sex:</label>
+          <select id="childSex" required>
+            <option value="M" ${child && child.sex==="M" ? "selected" : ""}>Male</option>
+            <option value="F" ${child && child.sex==="F" ? "selected" : ""}>Female</option>
+          </select>
+          <label for="childAddress">Address:</label>
+          <input type="text" id="childAddress" required value="${child ? child.address : ""}"/>
+          <label for="childCity">City:</label>
+          <input type="text" id="childCity" required value="${child ? child.city : ""}"/>
+          <label for="childState">State:</label>
+          <select id="childState" required>
+            <option value="NY" ${child && child.state==="NY" ? "selected" : ""}>New York</option>
+          </select>
+          <label for="childZipCode">Zip Code:</label>
+          <input type="text" id="childZipCode" required pattern="[0-9]{5}" title="Five digit zip code" value="${child ? child.zipCode : ""}"/>
           <label for="childStatus">Status:</label>
           <select id="childStatus" required>
             <option value="open" ${child && child.status==="open" ? "selected" : ""}>Open</option>
@@ -650,6 +664,11 @@ function applyFormat(command) {
           referralDate: document.getElementById("childReferralDate").value,
           initialIfspDate: document.getElementById("childInitialIfspDate").value,
           status: document.getElementById("childStatus").value,
+          sex: document.getElementById("childSex").value,
+          address: document.getElementById("childAddress").value,
+          city: document.getElementById("childCity").value,
+          state: document.getElementById("childState").value,
+          zipCode: document.getElementById("childZipCode").value,
           coordinatorId: currentUser.loginName
         };
         let children = getData("children");
@@ -1262,6 +1281,8 @@ function applyFormat(command) {
               <th onclick="sortChildren('firstName')">First Name <span class="sort-indicator">${childSortState.column==='firstName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
               <th onclick="sortChildren('lastName')">Last Name <span class="sort-indicator">${childSortState.column==='lastName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
               <th onclick="sortChildren('nyeisId')">NYEIS ID <span class="sort-indicator">${childSortState.column==='nyeisId' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('city')">City <span class="sort-indicator">${childSortState.column==='city' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('zipCode')">Zip Code <span class="sort-indicator">${childSortState.column==='zipCode' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
               <th onclick="sortChildren('dob')">DOB <span class="sort-indicator">${childSortState.column==='dob' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
               <th onclick="sortChildren('referralDate')">Referral Date <span class="sort-indicator">${childSortState.column==='referralDate' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
               <th onclick="sortChildren('initialIfspDate')">Initial IFSP Date <span class="sort-indicator">${childSortState.column==='initialIfspDate' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
@@ -1276,6 +1297,8 @@ function applyFormat(command) {
             <td>${child.firstName}</td>
             <td>${child.lastName}</td>
             <td>${child.nyeisId}</td>
+            <td>${child.city || ''}</td>
+            <td>${child.zipCode || ''}</td>
             <td>${formatDate(child.dob)}</td>
             <td>${formatDate(child.referralDate)}</td>
             <td>${formatDate(child.initialIfspDate)}</td>
@@ -1463,6 +1486,22 @@ function applyFormat(command) {
       document.getElementById("noteTotalTime").addEventListener("input", updateEndTime);
       document.getElementById("noteForm").addEventListener("submit", function(e) {
         e.preventDefault();
+        
+        // Get the selected authorization and note date
+        const selectedAuthId = document.getElementById("noteAuthorizationId").value;
+        const noteDate = document.getElementById("noteDate").value;
+        const auth = getData("authorizations").find(a => a.authorizationId === selectedAuthId);
+        
+        // Check if note date is within authorization date range
+        if (noteDate < auth.startDate || noteDate > auth.endDate) {
+          document.getElementById("noteFormError").textContent = 
+            `Error: Note date must be between ${formatDate(auth.startDate)} and ${formatDate(auth.endDate)}. Please select a different authorization or change the note date.`;
+          return;
+        }
+        
+        // Clear any previous error message
+        document.getElementById("noteFormError").textContent = "";
+        
         const noteContent = document.getElementById("noteContent").innerHTML;
         const newNote = {
           id: note ? note.id : getNextId("nextNoteId"),
