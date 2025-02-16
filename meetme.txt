@@ -1,0 +1,64 @@
+Database Schema Analysis:
+
+The application uses localStorage to store data. The following tables and relationships can be inferred:
+
+Tables:
+
+1. serviceCoordinators:
+    scId (string, primary key)
+    firstName (string)
+    lastName (string)
+    phoneNumber (string)
+    email (string)
+    loginName (string, unique)
+    loginPassword (string)
+2. children:
+    id (integer, primary key)
+    firstName (string)
+    lastName (string)
+    nyeisId (string)
+    dob (date)
+    referralDate (date)
+    initialIfspDate (date)
+    status (string)
+    coordinatorId (string, foreign key referencing serviceCoordinators.scId)
+3. contacts:
+    id (integer, primary key)
+    childId (integer, foreign key referencing children.id)
+    name (string)
+    phoneNumber (string)
+    address (string)
+    email (string)
+    mobilePhone (string)
+4. authorizations:
+    id (integer, integer, primary key)
+    childId (integer, foreign key referencing children.id)
+    authorizationId (string)
+    type (string)
+    startDate (date)
+    endDate (date)
+    unitsApproved (integer)
+    status (string)
+5. notes:
+    id (integer, primary key)
+    childId (integer, foreign key referencing children.id)
+    authorizationId (string, foreign key referencing authorizations.authorizationId)
+    date (date)
+    startTime (time)
+    endTime (time)
+    note (string)
+    category (string)
+    qaCategory (string)
+    eSignature (string)
+
+Relationships:
+
+One-to-many: serviceCoordinators to children (one service coordinator can have many children)
+One-to-many: children to contacts (one child can have many contacts)
+One-to-many: children to authorizations (one child can have many authorizations)
+One-to-many: children to notes (one child can have many notes)
+One-to-many: authorizations to notes (one authorization can have many notes)
+
+Verification:
+
+For every note entity, there exists exactly one associated child entity and exactly one associated authorization entity. This is ensured by the `showNoteFormInline` function, which requires the selection of a child and an authorization when creating or editing a note.

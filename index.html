@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>NYC Early Intervention – Service Coordinator Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     /* Global Styles */
     body {
@@ -10,9 +11,6 @@
       margin: 0;
       padding: 20px;
       background: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
     header {
       margin-bottom: 20px;
@@ -49,6 +47,22 @@
     button:hover {
       background: #0056b3;
     }
+    /* Media queries for responsiveness */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      input, select, textarea {
+        width: 100%;
+      }
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .dashboard-header h2 {
+        margin-bottom: 10px;
+      }
+    }
     .error {
       color: red;
     }
@@ -72,7 +86,6 @@
     /* Dashboard header */
     .dashboard-header {
       display: flex;
-      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
     }
@@ -105,109 +118,66 @@
     #noteContent {
       min-height: 150px;
       border: 1px solid #ccc;
-      padding: 5px;
-      overflow: auto;
-    }
-    /* Responsive Styles */
-    @media (max-width: 768px) {
-      body {
-        padding: 10px;
-      }
-      header h1 {
-        font-size: 1.5em;
-      }
-      .dashboard-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      button {
-        width: 100%;
-        margin-top: 10px;
-      }
-      .data-table th, .data-table td {
-        padding: 6px;
-      }
-      #childFormContainer, #contactFormContainer, #authFormContainer, #noteFormContainer {
-        padding: 8px;
-      }
-    }
-    /* Improved Button Styles */
-    button {
-      border-radius: 4px;
-      transition: background 0.3s ease;
-    }
-    button:active {
-      transform: scale(0.98);
-    }
-    /* Improve Form Field Appearance */
-    input, select, textarea {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-    /* Use Flexbox for Layout */
-    .dashboard-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-    }
-    /* Collapsible Sections for Mobile */
-    .collapsible {
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
       padding: 10px;
-      width: 100%;
-      border: none;
-      text-align: left;
+      overflow: auto;
+      background: white;
+      line-height: 1.5;
+    }
+    
+    #noteContent:focus {
       outline: none;
-      font-size: 1.2em;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
     }
-    .active, .collapsible:hover {
-      background-color: #0056b3;
+    
+    #noteContent ul {
+      padding-left: 20px;
+      margin: 10px 0;
     }
-    .content {
-      padding: 0 18px;
-      display: none;
+    
+    /* Rich text editor toolbar styles */
+    #noteToolbar {
+      display: flex;
+      gap: 5px;
+      padding: 5px;
+      margin-bottom: 5px;
+      border: 1px solid #ccc;
+      background: #f8f8f8;
+      border-radius: 3px;
+    }
+    
+    #noteToolbar button {
+      min-width: 30px;
+      height: 30px;
+      padding: 5px;
+      background: #e0e0e0;
+      border: 1px solid #ddd;
+      color: black;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s ease;
+    }
+    
+    #noteToolbar button:hover {
+      background: #e9ecef;
+      border-color: #adb5bd;
+    }
+    
+    #noteToolbar button:active {
+      background: #dee2e6;
+      transform: translateY(1px);
+    }
+    /* Responsive table styles */
+    .actions-dropdown {
+      width: 120px; /* Adjust as needed */
       overflow: hidden;
-      background-color: #f4f4f4;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    /* Responsive Table Design */
-    .data-table {
-      display: block;
+    
+    .table-responsive {
       overflow-x: auto;
-      white-space: nowrap;
-    }
-    /* Adjust Button Styles for Mobile */
-    button {
-      width: 100%;
-      margin-top: 10px;
-    }
-    /* Ensure Action Menu Visibility */
-    .data-table th:last-child, .data-table td:last-child {
-      min-width: 120px;
-    }
-    .data-table th, .data-table td {
-      white-space: nowrap;
-    }
-    /* Ensure Full Width on Larger Screens */
-    #app {
-      width: 100%;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .data-table {
-      width: 100%;
-    }
-    header, .dashboard-header, .content {
-      width: 100%;
-    }
-    /* Adjust Reset Button Style */
-    #appHeader button {
-      width: auto;
-      padding: 5px 15px;
-      font-size: 1em;
-      margin-left: 10px;
+      -webkit-overflow-scrolling: touch;
     }
   </style>
 </head>
@@ -260,6 +230,12 @@
       const total = document.getElementById("noteTotalTime").value || 0;
       document.getElementById("noteEndTime").value = calculateEndTime(start, total);
     }
+function applyFormat(command) {
+  const noteContent = document.getElementById('noteContent');
+  noteContent.focus();
+  document.execCommand(command, false, null);
+  noteContent.focus(); // Keep focus on the content area
+}
     // Get eligible authorizations for a child (status "open" and not expired)
     function getEligibleAuthorizations(childId) {
       let auths = getData("authorizations").filter(a => 
@@ -283,14 +259,90 @@
       document.getElementById("appHeader").innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; background: #007bff; color: #fff; padding: 10px;">
           <h1 style="margin:0;">New York Service Coordination Notes App</h1>
-          <button onclick="backupData()" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">Backup</button>
-          <input type="file" id="restoreFile" style="display:none" onchange="restoreData(event)" />
-          <button onclick="document.getElementById('restoreFile').click()" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">Restore</button>
-          <button onclick="resetApp()" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">Reset</button>
-          <button onclick="handleLogout()" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">Logout</button>
+          <div style="position: relative; display: inline-block;">
+            <button id="dropdownButton" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">
+              ☰
+            </button>
+            <div style="position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #ccc; display: none; flex-direction: column; min-width: 120px;" id="dropdownMenu">
+              <button onclick="resetApp()" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Reset</button>
+              <button id="editProfileBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Edit Profile</button>
+              <button id="logoutBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Logout</button>
+            </div>
+          </div>
         </div>
       `;
+
+      const dropdownButton = document.getElementById('dropdownButton');
+      const dropdownMenu = document.getElementById('dropdownMenu');
+
+      dropdownButton.addEventListener('click', function(event) {
+        dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'flex' : 'none';
+        event.stopPropagation();
+      });
+
+      document.addEventListener('click', function(event) {
+        if (!dropdownMenu.contains(event.target) && event.target !== dropdownButton) {
+          dropdownMenu.style.display = 'none';
+        }
+      });
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        currentUser = null;
+        showLogin();
+      });
+      document.getElementById("editProfileBtn").addEventListener("click", () => {
+        showEditProfile();
+      });
     }
+
+    function showEditProfile() {
+     document.getElementById("app").innerHTML = `
+       <div class="signup-container" style="max-width:400px; margin:40px auto; background:#fff; padding:20px; border:1px solid #ccc;">
+         <h2>Edit Profile</h2>
+         <form id="editProfileForm">
+           <label for="firstName">First Name:</label>
+           <input type="text" id="firstName" required value="${currentUser.firstName}" />
+           <label for="lastName">Last Name:</label>
+           <input type="text" id="lastName" required value="${currentUser.lastName}" />
+           <label for="phoneNumber">Phone Number:</label>
+           <input type="text" id="phoneNumber" required value="${currentUser.phoneNumber}" />
+           <label for="email">Email:</label>
+           <input type="email" id="email" required value="${currentUser.email}" />
+           <label for="scId">Service Coordinator ID:</label>
+           <input type="text" id="scId" required value="${currentUser.scId}" />
+           <label for="signupLoginName">Login Name:</label>
+           <input type="text" id="signupLoginName" required value="${currentUser.loginName}" />
+           <label for="signupLoginPassword">Password:</label>
+           <input type="password" id="signupLoginPassword" required value="${currentUser.loginPassword}" />
+           <label for="npiNumber">NPI Number:</label>
+           <input type="text" id="npiNumber" required value="${currentUser.npiNumber || ''}" />
+           <button type="submit">Update</button>
+         </form>
+         <div id="editProfileError" class="error"></div>
+       </div>
+     `;
+     document.getElementById("editProfileForm").addEventListener("submit", handleEditProfile);
+   }
+
+   function handleEditProfile(e) {
+     e.preventDefault();
+     const updatedSC = {
+       firstName: document.getElementById("firstName").value,
+       lastName: document.getElementById("lastName").value,
+       phoneNumber: document.getElementById("phoneNumber").value,
+       email: document.getElementById("email").value,
+       scId: document.getElementById("scId").value,
+       loginName: document.getElementById("signupLoginName").value,
+       loginPassword: document.getElementById("signupLoginPassword").value,
+       npiNumber: document.getElementById("npiNumber").value
+     };
+     const coordinators = getData("serviceCoordinators");
+     const index = coordinators.findIndex(sc => sc.loginName === currentUser.loginName);
+     coordinators[index] = updatedSC;
+     setData("serviceCoordinators", coordinators);
+     currentUser = updatedSC;
+     showDashboard();
+   }
     // Reset the app: clear localStorage and reload dummy data
     function resetApp() {
       if (confirm("Are you sure? This action is permanent and will remove all data.")) {
@@ -329,79 +381,102 @@
      * INIT LOCAL STORAGE & DUMMY DATA
      ************************************/
     function initLocalStorage() {
-      // Always ensure test user exists
-      if (!localStorage.getItem("serviceCoordinators")) {
-        const testUser = {
-          firstName: "Test",
-          lastName: "User",
-          phoneNumber: "",
-          email: "",
-          scId: "1",
-          loginName: "test",
-          loginPassword: "test"
-        };
-        setData("serviceCoordinators", [testUser]);
-      }
-      if (!localStorage.getItem("nextChildId")) { localStorage.setItem("nextChildId", "1"); }
-      if (!localStorage.getItem("nextContactId")) { localStorage.setItem("nextContactId", "1"); }
-      if (!localStorage.getItem("nextAuthId")) { localStorage.setItem("nextAuthId", "1"); }
-      if (!localStorage.getItem("nextNoteId")) { localStorage.setItem("nextNoteId", "1"); }
-
-      // Dummy Children
-      if (!localStorage.getItem("children") || getData("children").length === 0) {
-        let dummyChildren = [
-          { id: 1, firstName: "Charles", lastName: "Brown", nyeisId: "NY123", dob: "2005-04-15", referralDate: "2020-01-10", initialIfspDate: "2020-02-01", status: "open", coordinatorId: "test" },
-          { id: 2, firstName: "Alice", lastName: "Green", nyeisId: "NY124", dob: "2006-07-20", referralDate: "2020-03-15", initialIfspDate: "2020-04-01", status: "open", coordinatorId: "test" },
-          { id: 3, firstName: "Bob", lastName: "White", nyeisId: "NY125", dob: "2007-09-30", referralDate: "2020-05-05", initialIfspDate: "2020-06-01", status: "closed", coordinatorId: "test" }
-        ];
-        setData("children", dummyChildren);
-      }
-      // Dummy Contacts
-      if (!localStorage.getItem("contacts") || getData("contacts").length === 0) {
-        let dummyContacts = [
-          { id: getNextId("nextContactId"), childId: 1, name: "Alice Smith", phoneNumber: "555-1234", address: "123 Main St", email: "alice@example.com", mobilePhone: "555-5678" },
-          { id: getNextId("nextContactId"), childId: 1, name: "Bob Johnson", phoneNumber: "555-2345", address: "456 Oak Ave", email: "bob@example.com", mobilePhone: "555-6789" },
-          { id: getNextId("nextContactId"), childId: 2, name: "Carol Davis", phoneNumber: "555-3456", address: "789 Pine Rd", email: "carol@example.com", mobilePhone: "555-7890" },
-          { id: getNextId("nextContactId"), childId: 2, name: "David Evans", phoneNumber: "555-4567", address: "321 Maple Ln", email: "david@example.com", mobilePhone: "555-8901" },
-          { id: getNextId("nextContactId"), childId: 3, name: "Eve Foster", phoneNumber: "555-5678", address: "654 Cedar St", email: "eve@example.com", mobilePhone: "555-9012" },
-          { id: getNextId("nextContactId"), childId: 3, name: "Frank Gray", phoneNumber: "555-6789", address: "987 Spruce Ave", email: "frank@example.com", mobilePhone: "555-0123" }
-        ];
-        setData("contacts", dummyContacts);
-      }
-      // Dummy Authorizations
-      if (!localStorage.getItem("authorizations") || getData("authorizations").length === 0) {
-        let dummyAuths = [
-          { id: getNextId("nextAuthId"), childId: 1, authorizationId: "AUTH001", type: "ISC", startDate: "2020-01-15", endDate: "2020-06-15", unitsApproved: 20, status: "open" },
-          { id: getNextId("nextAuthId"), childId: 1, authorizationId: "AUTH002", type: "OSC", startDate: "2021-03-01", endDate: "2021-09-01", unitsApproved: 15, status: "closed" },
-          { id: getNextId("nextAuthId"), childId: 2, authorizationId: "AUTH003", type: "ISC", startDate: "2020-04-01", endDate: "2020-10-01", unitsApproved: 18, status: "open" },
-          { id: getNextId("nextAuthId"), childId: 2, authorizationId: "AUTH004", type: "OSC", startDate: "2021-01-01", endDate: "2021-07-01", unitsApproved: 12, status: "closed" },
-          { id: getNextId("nextAuthId"), childId: 3, authorizationId: "AUTH005", type: "ISC", startDate: "2020-07-01", endDate: "2021-01-01", unitsApproved: 22, status: "open" },
-          { id: getNextId("nextAuthId"), childId: 3, authorizationId: "AUTH006", type: "OSC", startDate: "2021-05-01", endDate: "2021-11-01", unitsApproved: 16, status: "closed" }
-        ];
-        setData("authorizations", dummyAuths);
-      }
-      // Dummy Notes
-      if (!localStorage.getItem("notes") || getData("notes").length === 0) {
-        let dummyNotes = [
-          { id: getNextId("nextNoteId"), childId: 1, authorizationId: "AUTH001", date: "2020-02-20", startTime: "09:00", endTime: "10:00", note: "Initial session completed", category: "Billable", qaCategory: "one", eSignature: "Dr. Smith" },
-          { id: getNextId("nextNoteId"), childId: 1, authorizationId: "AUTH001", date: "2020-03-10", startTime: "09:30", endTime: "10:30", note: "Follow-up session", category: "Billable", qaCategory: "two", eSignature: "Dr. Smith" },
-          { id: getNextId("nextNoteId"), childId: 1, authorizationId: "AUTH002", date: "2021-04-15", startTime: "14:00", endTime: "15:00", note: "Evaluation session", category: "Non-Billable", qaCategory: "one", eSignature: "Dr. Jones" },
-          { id: getNextId("nextNoteId"), childId: 1, authorizationId: "AUTH002", date: "2021-05-10", startTime: "14:30", endTime: "15:30", note: "Progress review", category: "Billable", qaCategory: "three", eSignature: "Dr. Jones" },
-          { id: getNextId("nextNoteId"), childId: 1, authorizationId: "AUTH001", date: "2020-04-05", startTime: "10:00", endTime: "11:00", note: "Therapy session", category: "Billable", qaCategory: "one", eSignature: "Dr. Smith" },
-          { id: getNextId("nextNoteId"), childId: 2, authorizationId: "AUTH003", date: "2020-05-20", startTime: "10:00", endTime: "11:00", note: "Initial assessment", category: "Billable", qaCategory: "two", eSignature: "Dr. Adams" },
-          { id: getNextId("nextNoteId"), childId: 2, authorizationId: "AUTH003", date: "2020-06-10", startTime: "10:30", endTime: "11:30", note: "Therapy session", category: "Billable", qaCategory: "one", eSignature: "Dr. Adams" },
-          { id: getNextId("nextNoteId"), childId: 2, authorizationId: "AUTH004", date: "2021-02-15", startTime: "15:00", endTime: "16:00", note: "Progress review", category: "Non-Billable", qaCategory: "two", eSignature: "Dr. Baker" },
-          { id: getNextId("nextNoteId"), childId: 2, authorizationId: "AUTH004", date: "2021-03-10", startTime: "15:30", endTime: "16:30", note: "Session follow-up", category: "Billable", qaCategory: "three", eSignature: "Dr. Baker" },
-          { id: getNextId("nextNoteId"), childId: 2, authorizationId: "AUTH003", date: "2020-07-05", startTime: "10:00", endTime: "11:00", note: "Therapy session", category: "Billable", qaCategory: "one", eSignature: "Dr. Adams" },
-          { id: getNextId("nextNoteId"), childId: 3, authorizationId: "AUTH005", date: "2020-08-20", startTime: "08:30", endTime: "09:30", note: "Initial session", category: "Billable", qaCategory: "two", eSignature: "Dr. Clark" },
-          { id: getNextId("nextNoteId"), childId: 3, authorizationId: "AUTH005", date: "2020-09-10", startTime: "08:45", endTime: "09:45", note: "Therapy session", category: "Billable", qaCategory: "one", eSignature: "Dr. Clark" },
-          { id: getNextId("nextNoteId"), childId: 3, authorizationId: "AUTH006", date: "2021-06-15", startTime: "16:00", endTime: "17:00", note: "Follow-up session", category: "Non-Billable", qaCategory: "three", eSignature: "Dr. Davis" },
-          { id: getNextId("nextNoteId"), childId: 3, authorizationId: "AUTH006", date: "2021-07-10", startTime: "16:30", endTime: "17:30", note: "Progress review", category: "Billable", qaCategory: "two", eSignature: "Dr. Davis" },
-          { id: getNextId("nextNoteId"), childId: 3, authorizationId: "AUTH005", date: "2020-10-05", startTime: "09:00", endTime: "10:00", note: "Therapy session", category: "Billable", qaCategory: "one", eSignature: "Dr. Clark" }
-        ];
-        setData("notes", dummyNotes);
-      }
-    }
+          // This function initializes the local storage with dummy data if it's empty.
+    
+          // Always ensure test user exists
+          if (!localStorage.getItem("serviceCoordinators")) {
+            // If serviceCoordinators data doesn't exist, create a test user.
+            const testUser = {
+              firstName: "Test",
+              lastName: "User",
+              phoneNumber: "",
+              email: "",
+              scId: "1",
+              loginName: "test",
+              loginPassword: "test",
+              npiNumber: ""
+            };
+            setData("serviceCoordinators", [testUser]); // Store the test user in local storage.
+          }
+          // Initialize nextChildId if it doesn't exist
+          if (!localStorage.getItem("nextChildId")) { localStorage.setItem("nextChildId", "1"); }
+          // Initialize nextContactId if it doesn't exist
+          if (!localStorage.getItem("nextContactId")) { localStorage.setItem("nextContactId", "1"); }
+          // Initialize nextAuthId if it doesn't exist
+          if (!localStorage.getItem("nextAuthId")) { localStorage.setItem("nextAuthId", "1"); }
+          // Initialize nextNoteId if it doesn't exist
+          if (!localStorage.getItem("nextNoteId")) { localStorage.setItem("nextNoteId", "1"); }
+    
+          // Comprehensive Test Data
+          if (!localStorage.getItem("children") || getData("children").length === 0) {
+            // If children data doesn't exist or is empty, create test children.
+            let testChildren = [
+              { id: 1, firstName: "Jane", lastName: "Doe", nyeisId: "NY001", dob: "2018-05-10", referralDate: "2024-01-15", initialIfspDate: "2024-02-20", status: "open", coordinatorId: "test" },
+              { id: 2, firstName: "John", lastName: "Smith", nyeisId: "NY002", dob: "2017-11-22", referralDate: "2023-12-01", initialIfspDate: "2024-01-05", status: "open", coordinatorId: "test" },
+              { id: 3, firstName: "Emily", lastName: "Chen", nyeisId: "NY003", dob: "2019-02-01", referralDate: "2024-02-01", initialIfspDate: "2024-03-10", status: "open", coordinatorId: "test" }
+            ];
+            setData("children", testChildren); // Store the test children in local storage.
+          }
+    
+          if (!localStorage.getItem("authorizations") || getData("authorizations").length === 0) {
+            // If authorizations data doesn't exist or is empty, create test authorizations.
+            let testAuthorizations = [
+              { id: 1, childId: 1, authorizationId: "AUTH2024-001", type: "EI Services", startDate: "2024-02-20", endDate: "2024-08-20", unitsApproved: 30, status: "open" },
+              { id: 2, childId: 2, authorizationId: "AUTH2024-002", type: "OT Services", startDate: "2024-01-05", endDate: "2024-07-05", unitsApproved: 25, status: "open" },
+              { id: 3, childId: 3, authorizationId: "AUTH2024-003", type: "PT Services", startDate: "2024-03-10", endDate: "2024-09-10", unitsApproved: 20, status: "open" }
+            ];
+            setData("authorizations", testAuthorizations); // Store the test authorizations in local storage.
+          }
+    
+          if (!localStorage.getItem("notes") || getData("notes").length === 0) {
+            // If notes data doesn't exist or is empty, create test notes.
+            let testNotes = [
+              {
+                id: 1, childId: 1, authorizationId: "AUTH2024-001", date: "2024-03-01", startTime: "10:00", endTime: "11:00",
+                note: `Session with Jane focused on improving fine motor skills. Activities included playing with building blocks, drawing, and using scissors. Jane showed great progress and was able to complete several tasks independently.
+    
+                Next session will focus on increasing the difficulty of the activities and introducing new challenges.`,
+                category: "Billable", qaCategory: "one", eSignature: "Dr. Smith"
+              },
+              {
+                id: 2, childId: 2, authorizationId: "AUTH2024-002", date: "2024-02-10", startTime: "14:00", endTime: "15:00",
+                note: `John's OT session involved sensory integration activities to address tactile defensiveness. We used various textures and materials to help John become more comfortable with different sensations.
+    
+                He initially showed some resistance but gradually became more engaged. We will continue to work on sensory integration in future sessions.`,
+                category: "Billable", qaCategory: "two", eSignature: "Dr. Jones"
+              },
+              {
+                id: 3, childId: 3, authorizationId: "AUTH2024-003", date: "2024-04-01", startTime: "09:30", endTime: "10:30",
+                note: `Emily's PT session focused on improving gross motor skills and balance. Activities included walking on a balance beam, jumping jacks, and playing catch.
+    
+                Emily demonstrated good coordination and was able to maintain her balance throughout the session. We will continue to work on strengthening her core muscles and improving her overall stability.`,
+                category: "Billable", qaCategory: "one", eSignature: "Dr. Chen"
+              },
+              {
+                id: 4, childId: 1, authorizationId: "AUTH2024-001", date: "2024-03-15", startTime: "11:00", endTime: "12:00",
+                note: `Second session with Jane. We worked on handwriting skills and letter recognition. Jane is showing improvement in her ability to form letters correctly.
+    
+                We also practiced using a keyboard to improve her typing skills. Next session will focus on sentence construction and creative writing.`,
+                category: "Billable", qaCategory: "two", eSignature: "Dr. Smith"
+              },
+              {
+                id: 5, childId: 2, authorizationId: "AUTH2024-002", date: "2024-03-01", startTime: "15:00", endTime: "16:00",
+                note: `Another OT session with John. We continued to work on sensory integration and introduced new activities to challenge him.
+    
+                John is becoming more tolerant of different textures and is starting to enjoy the sensory activities. We will gradually increase the intensity of the activities to further improve his sensory processing skills.`,
+                category: "Billable", qaCategory: "three", eSignature: "Dr. Jones"
+              },
+              {
+                id: 6, childId: 3, authorizationId: "AUTH2024-003", date: "2024-04-15", startTime: "10:00", endTime: "11:00",
+                note: `Another PT session with Emily. We focused on improving her coordination and agility. Activities included running, skipping, and playing hopscotch.
+    
+                Emily is showing great enthusiasm and is making steady progress. We will continue to work on improving her overall physical fitness and preparing her for more advanced activities.`,
+                category: "Billable", qaCategory: "one", eSignature: "Dr. Chen"
+              }
+            ];
+            setData("notes", testNotes); // Store the test notes in local storage.
+          }
+        }
 
     /************************************
      * DELETE FUNCTIONS (with confirmation)
@@ -638,9 +713,9 @@
             <td>${contact.email}</td>
             <td>${contact.mobilePhone}</td>
             <td>
-              <select onchange="handleContactAction(this, ${child.id}, ${contact.id})">
-                <option value="">Select Action</option>
-                <option value="edit">Edit Contact</option>
+              <select class="actions-dropdown" onchange="handleContactAction(this, ${child.id}, ${contact.id})">
+                <option value="">Action</option>
+                <option value="edit">View / Edit Contact</option>
                 <option value="delete">Delete Contact</option>
               </select>
             </td>
@@ -765,9 +840,9 @@
             <td>${unitsUsed}</td>
             <td>${unitsRemaining}</td>
             <td>
-              <select onchange="handleAuthorizationAction(this, ${child.id}, ${auth.id})">
-                <option value="">Select Action</option>
-                <option value="edit">Edit Authorization</option>
+              <select class="actions-dropdown" onchange="handleAuthorizationAction(this, ${child.id}, ${auth.id})">
+                <option value="">Action</option>
+                <option value="edit">View / Edit Authorization</option>
                 <option value="delete">Delete Authorization</option>
               </select>
             </td>
@@ -899,9 +974,9 @@
             <td>${note.qaCategory}</td>
             <td>${note.eSignature}</td>
             <td>
-              <select onchange="handleNoteAction(this, ${child.id}, ${note.id})">
+              <select class="actions-dropdown" onchange="handleNoteAction(this, ${child.id}, ${note.id})">
                 <option value="">Select Action</option>
-                <option value="edit">Edit Note</option>
+                <option value="edit">View / Edit Note</option>
                 <option value="delete">Delete Note</option>
               </select>
             </td>
@@ -974,6 +1049,12 @@
           <label for="noteEndTime">End Time:</label>
           <input type="time" id="noteEndTime" readonly value="${note ? note.endTime : defaultEndTime}" />
           <label for="noteContent">Note:</label>
+          <div id="noteToolbar">
+            <button type="button" onclick="applyFormat('bold')" title="Bold"><b>B</b></button>
+            <button type="button" onclick="applyFormat('italic')" title="Italic"><i>I</i></button>
+            <button type="button" onclick="applyFormat('underline')" title="Underline"><u>U</u></button>
+            <button type="button" onclick="applyFormat('insertUnorderedList')" title="Bullet List">&bull;</button>
+          </div>
           <div id="noteContent" contenteditable="true" style="min-height:150px; border:1px solid #ccc; padding:5px;">${note ? note.note : ""}</div>
           <label for="noteCategory">Category:</label>
           <select id="noteCategory" required>
@@ -1094,6 +1175,8 @@
             <input type="text" id="signupLoginName" required />
             <label for="signupLoginPassword">Password:</label>
             <input type="password" id="signupLoginPassword" required />
+            <label for="npiNumber">NPI Number:</label>
+            <input type="text" id="npiNumber" required />
             <button type="submit">Sign Up</button>
           </form>
           <p>Already have an account? <a href="#" id="loginLink">Login</a></p>
@@ -1115,7 +1198,8 @@
         email: document.getElementById("email").value,
         scId: document.getElementById("scId").value,
         loginName: document.getElementById("signupLoginName").value,
-        loginPassword: document.getElementById("signupLoginPassword").value
+        loginPassword: document.getElementById("signupLoginPassword").value,
+        npiNumber: document.getElementById("npiNumber").value
       };
       const coordinators = getData("serviceCoordinators");
       if (coordinators.find(sc => sc.loginName === newSC.loginName)) {
@@ -1144,6 +1228,10 @@
         </div>
         <div id="childDetailContainer"></div>
       `;
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        currentUser = null;
+        showLogin();
+      });
       document.getElementById("addChildBtn").addEventListener("click", () => {
         showChildForm(null);
       });
@@ -1167,8 +1255,9 @@
       }
       const container = document.getElementById("childrenTableContainer");
       let tableHtml = `
-        <table class="data-table">
-          <thead>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
             <tr>
               <th onclick="sortChildren('firstName')">First Name <span class="sort-indicator">${childSortState.column==='firstName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
               <th onclick="sortChildren('lastName')">Last Name <span class="sort-indicator">${childSortState.column==='lastName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
@@ -1192,19 +1281,20 @@
             <td>${formatDate(child.initialIfspDate)}</td>
             <td>${child.status}</td>
             <td>
-              <select onchange="handleChildAction(this, ${child.id})">
-                <option value="">Select Action</option>
-                <option value="contacts">Contacts</option>
-                <option value="authorizations">Authorizations</option>
-                <option value="notes">Notes</option>
-                <option value="edit">Edit Child</option>
-                <option value="delete">Delete Child</option>
+              <select class="actions-dropdown" onchange="handleChildAction(this, ${child.id})">
+                <option value="">Action</option>
+                        <option value="contacts">Contacts</option>
+                        <option value="authorizations">Authorizations</option>
+                        <option value="notes">Notes</option>
+                        <option value="edit">View / Edit</option>
+                        <option value="delete">Delete</option>
               </select>
             </td>
           </tr>
         `;
       });
-      tableHtml += `</tbody></table>`;
+      tableHtml += `</tbody></table>
+        </div>`;
       container.innerHTML = tableHtml;
     }
     function sortChildren(key) {
@@ -1271,9 +1361,9 @@
             <td>${note.qaCategory}</td>
             <td>${note.eSignature}</td>
             <td>
-              <select onchange="handleNoteAction(this, ${child.id}, ${note.id})">
+              <select class="actions-dropdown" onchange="handleNoteAction(this, ${child.id}, ${note.id})">
                 <option value="">Select Action</option>
-                <option value="edit">Edit Note</option>
+                <option value="edit">View / Edit Note</option>
                 <option value="delete">Delete Note</option>
               </select>
             </td>
@@ -1338,7 +1428,13 @@
           <label for="noteEndTime">End Time:</label>
           <input type="time" id="noteEndTime" readonly value="${note ? note.endTime : defaultEndTime}" />
           <label for="noteContent">Note:</label>
-          <div id="noteContent" contenteditable="true" style="min-height:150px; border:1px solid #ccc; padding:5px;">${note ? note.note : ""}</div>
+          <div id="noteToolbar">
+            <button type="button" onclick="applyFormat('bold')" title="Bold"><b>B</b></button>
+            <button type="button" onclick="applyFormat('italic')" title="Italic"><i>I</i></button>
+            <button type="button" onclick="applyFormat('underline')" title="Underline"><u>U</u></button>
+            <button type="button" onclick="applyFormat('insertUnorderedList')" title="Bullet List">&bull;</button>
+          </div>
+          <div id="noteContent" contenteditable="true" style="min-height:150px; border:1px solid #ccc; padding:10px; background: white; line-height: 1.5;">${note ? note.note : ""}</div>
           <label for="noteCategory">Category:</label>
           <select id="noteCategory" required>
             <option value="Billable" ${note && note.category==="Billable" ? "selected" : ""}>Billable</option>
@@ -1403,104 +1499,6 @@
     }
 
     /************************************
-     * LOGIN / SIGNUP FUNCTIONS
-     ************************************/
-    function showLogin() {
-      document.getElementById("app").innerHTML = `
-        <div class="login-container" style="max-width:400px; margin:40px auto; background:#fff; padding:20px; border:1px solid #ccc;">
-          <h2>Service Coordinator Login</h2>
-          <form id="loginForm">
-            <label for="loginName">Login Name:</label>
-            <input type="text" id="loginName" required />
-            <label for="loginPassword">Password:</label>
-            <input type="password" id="loginPassword" required />
-            <button type="submit">Login</button>
-          </form>
-          <p>Don't have an account? <a href="#" id="signupLink">Sign Up</a></p>
-          <div id="loginError" class="error"></div>
-        </div>
-      `;
-      document.getElementById("loginForm").addEventListener("submit", handleLogin);
-      document.getElementById("signupLink").addEventListener("click", function(e) {
-        e.preventDefault();
-        showSignup();
-      });
-    }
-    function handleLogin(e) {
-      e.preventDefault();
-      const loginName = document.getElementById("loginName").value;
-      const loginPassword = document.getElementById("loginPassword").value;
-      const user = getData("serviceCoordinators").find(sc => sc.loginName === loginName && sc.loginPassword === loginPassword);
-      if (user) {
-        currentUser = user;
-        showDashboard();
-      } else {
-        document.getElementById("loginError").textContent = "Invalid credentials.";
-      }
-    }
-    function showSignup() {
-      document.getElementById("app").innerHTML = `
-        <div class="signup-container" style="max-width:400px; margin:40px auto; background:#fff; padding:20px; border:1px solid #ccc;">
-          <h2>Service Coordinator Sign Up</h2>
-          <form id="signupForm">
-            <label for="firstName">First Name:</label>
-            <input type="text" id="firstName" required />
-            <label for="lastName">Last Name:</label>
-            <input type="text" id="lastName" required />
-            <label for="phoneNumber">Phone Number:</label>
-            <input type="text" id="phoneNumber" required />
-            <label for="email">Email:</label>
-            <input type="email" id="email" required />
-            <label for="scId">Service Coordinator ID:</label>
-            <input type="text" id="scId" required />
-            <label for="signupLoginName">Login Name:</label>
-            <input type="text" id="signupLoginName" required />
-            <label for="signupLoginPassword">Password:</label>
-            <input type="password" id="signupLoginPassword" required />
-            <button type="submit">Sign Up</button>
-          </form>
-          <p>Already have an account? <a href="#" id="loginLink">Login</a></p>
-          <div id="signupError" class="error"></div>
-        </div>
-      `;
-      document.getElementById("signupForm").addEventListener("submit", handleSignup);
-      document.getElementById("loginLink").addEventListener("click", function(e) {
-        e.preventDefault();
-        showLogin();
-      });
-    }
-    function handleSignup(e) {
-      e.preventDefault();
-      const newSC = {
-        firstName: document.getElementById("firstName").value,
-        lastName: document.getElementById("lastName").value,
-        phoneNumber: document.getElementById("phoneNumber").value,
-        email: document.getElementById("email").value,
-        scId: document.getElementById("scId").value,
-        loginName: document.getElementById("signupLoginName").value,
-        loginPassword: document.getElementById("signupLoginPassword").value
-      };
-      const coordinators = getData("serviceCoordinators");
-      if (coordinators.find(sc => sc.loginName === newSC.loginName)) {
-        document.getElementById("signupError").textContent = "Login name already exists.";
-        return;
-      }
-      coordinators.push(newSC);
-      setData("serviceCoordinators", coordinators);
-      currentUser = newSC;
-      showDashboard();
-    }
-
-    /************************************
-     * LOGOUT FUNCTION
-     ************************************/
-    function handleLogout() {
-      currentUser = null;
-      localStorage.removeItem('currentUser');
-      showLogin();
-    }
-
-    /************************************
      * INITIALIZE THE APP
      ************************************/
     document.addEventListener("DOMContentLoaded", function() {
@@ -1508,38 +1506,6 @@
       initLocalStorage();
       showLogin();
     });
-
-    /************************************
-     * BACKUP AND RESTORE FUNCTIONS
-     ************************************/
-    function backupData() {
-      const data = JSON.stringify(localStorage);
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'backup.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function restoreData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const data = JSON.parse(e.target.result);
-        for (const key in data) {
-          localStorage.setItem(key, data[key]);
-        }
-        const childrenCount = JSON.parse(localStorage.getItem('children')).length;
-        const authCount = JSON.parse(localStorage.getItem('authorizations')).length;
-        const notesCount = JSON.parse(localStorage.getItem('notes')).length;
-        alert(`Restored Data:\nChildren: ${childrenCount}\nAuthorizations: ${authCount}\nNotes: ${notesCount}\nRestored from file: ${file.name} on ${new Date().toLocaleString()}`);
-        location.reload();
-      };
-      reader.readAsText(file);
-    }
   </script>
 </body>
 </html>
