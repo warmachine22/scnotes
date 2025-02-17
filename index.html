@@ -76,8 +76,6 @@
       border: 1px solid #ccc;
       padding: 8px;
       text-align: left;
-      user-select: none;
-      cursor: pointer;
     }
     .data-table th span.sort-indicator {
       font-size: 0.8em;
@@ -88,6 +86,19 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+    /* Detail header for child summary */
+    .detail-header {
+      background: #f0f0f0;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .detail-header .child-info {
+      font-size: 1.1em;
     }
     /* Containers for inline forms */
     #childFormContainer,
@@ -114,7 +125,7 @@
       margin: 15px 0;
       border: 1px solid #ccc;
     }
-    /* Style for contenteditable note area */
+    /* Contenteditable note area */
     #noteContent {
       min-height: 150px;
       border: 1px solid #ccc;
@@ -123,18 +134,15 @@
       background: white;
       line-height: 1.5;
     }
-    
     #noteContent:focus {
       outline: none;
       border-color: #007bff;
       box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
     }
-    
     #noteContent ul {
       padding-left: 20px;
       margin: 10px 0;
     }
-    
     /* Rich text editor toolbar styles */
     #noteToolbar {
       display: flex;
@@ -145,7 +153,6 @@
       background: #f8f8f8;
       border-radius: 3px;
     }
-    
     #noteToolbar button {
       min-width: 30px;
       height: 30px;
@@ -157,24 +164,21 @@
       border-radius: 3px;
       transition: all 0.2s ease;
     }
-    
     #noteToolbar button:hover {
       background: #e9ecef;
       border-color: #adb5bd;
     }
-    
     #noteToolbar button:active {
       background: #dee2e6;
       transform: translateY(1px);
     }
     /* Responsive table styles */
     .actions-dropdown {
-      width: 120px; /* Adjust as needed */
+      width: 120px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    
     .table-responsive {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
@@ -191,13 +195,11 @@
     /************************************
      * HELPER FUNCTIONS
      ************************************/
-    // Format a date string (yyyy-mm-dd) to MM/DD/YYYY
     function formatDate(dateStr) {
       if (!dateStr) return "";
       const parts = dateStr.split("-");
       return parts[1] + "/" + parts[2] + "/" + parts[0];
     }
-    // Format a 24-hour time (HH:MM) to 12-hour format with AM/PM
     function formatTime(timeStr) {
       if (!timeStr) return "";
       let [hour, minute] = timeStr.split(":");
@@ -207,14 +209,12 @@
       if (hour12 === 0) hour12 = 12;
       return (hour12 < 10 ? "0" + hour12 : hour12) + ":" + minute + " " + ampm;
     }
-    // Return today's date in yyyy-mm-dd format
     function getTodayDate() {
       const today = new Date();
       const mm = String(today.getMonth() + 1).padStart(2, "0");
       const dd = String(today.getDate()).padStart(2, "0");
       return today.getFullYear() + "-" + mm + "-" + dd;
     }
-    // Calculate end time given start time and total minutes duration
     function calculateEndTime(startTime, totalMinutes) {
       const [startHour, startMin] = startTime.split(":").map(Number);
       const date = new Date();
@@ -224,24 +224,19 @@
       const mm = String(date.getMinutes()).padStart(2, "0");
       return `${hh}:${mm}`;
     }
-    // Update the end time field based on start time and total time
     function updateEndTime() {
       const start = document.getElementById("noteStartTime").value;
       const total = document.getElementById("noteTotalTime").value || 0;
       document.getElementById("noteEndTime").value = calculateEndTime(start, total);
     }
-function applyFormat(command) {
-  const noteContent = document.getElementById('noteContent');
-  noteContent.focus();
-  document.execCommand(command, false, null);
-  noteContent.focus(); // Keep focus on the content area
-}
-    // Get eligible authorizations for a child (status "open" and not expired)
+    function applyFormat(command) {
+      const noteContent = document.getElementById('noteContent');
+      noteContent.focus();
+      document.execCommand(command, false, null);
+      noteContent.focus();
+    }
     function getEligibleAuthorizations(childId) {
-      // Get all authorizations for the child without any filtering
       let auths = getData("authorizations").filter(a => a.childId === childId);
-      
-      // Calculate units used/remaining for display purposes
       auths.forEach(a => {
         const notes = getData("notes").filter(n => 
           n.childId === childId &&
@@ -249,20 +244,50 @@ function applyFormat(command) {
           n.category.toLowerCase() === "billable"
         );
         a.unitsUsed = notes.length;
-        a.unitsRemaining = a.unitsApproved - a.unitsUsed;
+        a.unitsRemaining = a.unitsApproved - notes.length;
       });
       return auths;
     }
-    // Update header with app title and Reset button
+    // Returns a detail header with child's info and a back button
+    function getChildHeader(child) {
+      return `<div class="detail-header">
+                <div class="child-info">
+                  <strong>${child.firstName} ${child.lastName}</strong> — NYEIS ID: ${child.nyeisId}, DOB: ${formatDate(child.dob)}, Status: ${child.status}
+                </div>
+                <button onclick="backToKidsView()">Back to Children</button>
+              </div>`;
+    }
+    /************************************
+     * STORAGE HELPERS
+     ************************************/
+    function getData(key) { return JSON.parse(localStorage.getItem(key)); }
+    function setData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+    function getNextId(key) {
+      let id = parseInt(localStorage.getItem(key));
+      localStorage.setItem(key, (id + 1).toString());
+      return id;
+    }
+    /************************************
+     * GLOBAL VARIABLES & SORT STATES
+     ************************************/
+    let currentUser = null;
+    let childSortState = { column: "", order: "asc" };
+    let contactSortState = { column: "", order: "asc" };
+    let authSortState = { column: "", order: "asc" };
+    let noteSortState = { column: "", order: "asc" };
+    let currentContactsChild = null;
+    let currentAuthChild = null;
+    let currentNoteChild = null;
+    /************************************
+     * HEADER & LOGIN/PROFILE FUNCTIONS
+     ************************************/
     function updateHeader() {
       document.getElementById("appHeader").innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; background: #007bff; color: #fff; padding: 10px;">
           <h1 style="margin:0;">New York Service Coordination Notes App</h1>
           <div style="position: relative; display: inline-block;">
-            <button id="dropdownButton" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">
-              ☰
-            </button>
-            <div style="position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #ccc; display: none; flex-direction: column; min-width: 120px;" id="dropdownMenu">
+            <button id="dropdownButton" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">☰</button>
+            <div id="dropdownMenu" style="position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #ccc; display: none; flex-direction: column; min-width: 120px;">
               <button onclick="resetApp()" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Reset</button>
               <button id="editProfileBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Edit Profile</button>
               <button id="logoutBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Logout</button>
@@ -270,21 +295,15 @@ function applyFormat(command) {
           </div>
         </div>
       `;
-
-      const dropdownButton = document.getElementById('dropdownButton');
-      const dropdownMenu = document.getElementById('dropdownMenu');
-
-      dropdownButton.addEventListener('click', function(event) {
-        dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'flex' : 'none';
+      document.getElementById("dropdownButton").addEventListener("click", function(event) {
+        const menu = document.getElementById("dropdownMenu");
+        menu.style.display = (menu.style.display === "none" || menu.style.display === "") ? "flex" : "none";
         event.stopPropagation();
       });
-
-      document.addEventListener('click', function(event) {
-        if (!dropdownMenu.contains(event.target) && event.target !== dropdownButton) {
-          dropdownMenu.style.display = 'none';
-        }
+      document.addEventListener("click", function(event) {
+        const menu = document.getElementById("dropdownMenu");
+        if (!menu.contains(event.target)) menu.style.display = "none";
       });
-
       document.getElementById("logoutBtn").addEventListener("click", () => {
         currentUser = null;
         showLogin();
@@ -293,9 +312,8 @@ function applyFormat(command) {
         showEditProfile();
       });
     }
-
     function showEditProfile() {
-     document.getElementById("app").innerHTML = `
+      document.getElementById("app").innerHTML = `
        <div class="signup-container" style="max-width:400px; margin:40px auto; background:#fff; padding:20px; border:1px solid #ccc;">
          <h2>Edit Profile</h2>
          <form id="editProfileForm">
@@ -314,7 +332,7 @@ function applyFormat(command) {
            <label for="signupLoginPassword">Password:</label>
            <input type="password" id="signupLoginPassword" required value="${currentUser.loginPassword}" />
            <label for="npiNumber">NPI Number:</label>
-           <input type="text" id="npiNumber" required value="${currentUser.npiNumber || ''}" />
+           <input type="text" id="npiNumber" required value="${currentUser.npiNumber}" />
            <button type="submit">Update</button>
          </form>
          <div id="editProfileError" class="error"></div>
@@ -322,7 +340,6 @@ function applyFormat(command) {
      `;
      document.getElementById("editProfileForm").addEventListener("submit", handleEditProfile);
    }
-
    function handleEditProfile(e) {
      e.preventDefault();
      const updatedSC = {
@@ -352,213 +369,394 @@ function applyFormat(command) {
     }
 
     /************************************
-     * GLOBAL VARIABLES & SORT STATES
+     * TABLE RENDERING FUNCTIONS – Separated Header and Row Updates
      ************************************/
-    let currentUser = null;
-    let childSortState = { column: "", order: "asc" };
-    let contactSortState = { column: "", order: "asc" };
-    let authSortState = { column: "", order: "asc" };
-    let noteSortState = { column: "", order: "asc" };
-
-    // For details views, store current child object
-    let currentContactsChild = null;
-    let currentAuthChild = null;
-    let currentNoteChild = null;
+    // Children Table (already with filter row)
+    function renderChildrenTable() {
+      let children = getData("children") || [];
+      children = children.filter(child => child.coordinatorId === currentUser.loginName);
+      if(childSortState.column) {
+        children.sort((a, b) => {
+          const valA = a[childSortState.column] || "";
+          const valB = b[childSortState.column] || "";
+          return childSortState.order === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        });
+      }
+      const container = document.getElementById("childrenTableContainer");
+      let tableHtml = `
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+            <tr>
+              <th><input type="text" id="filterFirstName" placeholder="Filter First Name" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterLastName" placeholder="Filter Last Name" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterNYEIS" placeholder="Filter NYEIS ID" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterCity" placeholder="Filter City" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterZip" placeholder="Filter Zip Code" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterDOB" placeholder="Filter DOB" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterReferral" placeholder="Filter Referral Date" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterIFSP" placeholder="Filter IFSP Date" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th><input type="text" id="filterStatus" placeholder="Filter Status" oninput="updateChildrenRows()" style="width:100%;"/></th>
+              <th></th>
+            </tr>
+            <tr>
+              <th onclick="sortChildren('firstName')">First Name <span class="sort-indicator">${childSortState.column==='firstName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('lastName')">Last Name <span class="sort-indicator">${childSortState.column==='lastName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('nyeisId')">NYEIS ID <span class="sort-indicator">${childSortState.column==='nyeisId' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('city')">City <span class="sort-indicator">${childSortState.column==='city' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('zipCode')">Zip Code <span class="sort-indicator">${childSortState.column==='zipCode' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('dob')">DOB <span class="sort-indicator">${childSortState.column==='dob' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('referralDate')">Referral Date <span class="sort-indicator">${childSortState.column==='referralDate' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('initialIfspDate')">Initial IFSP Date <span class="sort-indicator">${childSortState.column==='initialIfspDate' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th onclick="sortChildren('status')">Status <span class="sort-indicator">${childSortState.column==='status' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+              <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="childrenTableBody"></tbody>
+          </table>
+        </div>`;
+      container.innerHTML = tableHtml;
+      updateChildrenRows();
+    }
+    function updateChildrenRows() {
+      let children = (getData("children") || []).filter(child => child.coordinatorId === currentUser.loginName);
+      const filterFirstName = document.getElementById("filterFirstName").value.trim().toLowerCase();
+      const filterLastName = document.getElementById("filterLastName").value.trim().toLowerCase();
+      const filterNYEIS = document.getElementById("filterNYEIS").value.trim().toLowerCase();
+      const filterCity = document.getElementById("filterCity").value.trim().toLowerCase();
+      const filterZip = document.getElementById("filterZip").value.trim().toLowerCase();
+      const filterDOB = document.getElementById("filterDOB").value.trim().toLowerCase();
+      const filterReferral = document.getElementById("filterReferral").value.trim().toLowerCase();
+      const filterIFSP = document.getElementById("filterIFSP").value.trim().toLowerCase();
+      const filterStatus = document.getElementById("filterStatus").value.trim().toLowerCase();
+      children = children.filter(child => {
+        return child.firstName.toLowerCase().includes(filterFirstName) &&
+               child.lastName.toLowerCase().includes(filterLastName) &&
+               child.nyeisId.toLowerCase().includes(filterNYEIS) &&
+               (child.city ? child.city.toLowerCase().includes(filterCity) : true) &&
+               (child.zipCode ? child.zipCode.toLowerCase().includes(filterZip) : true) &&
+               formatDate(child.dob).toLowerCase().includes(filterDOB) &&
+               formatDate(child.referralDate).toLowerCase().includes(filterReferral) &&
+               formatDate(child.initialIfspDate).toLowerCase().includes(filterIFSP) &&
+               child.status.toLowerCase().includes(filterStatus);
+      });
+      if(childSortState.column) {
+        children.sort((a, b) => {
+          const valA = a[childSortState.column] || "";
+          const valB = b[childSortState.column] || "";
+          return childSortState.order === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        });
+      }
+      let rowsHtml = "";
+      children.forEach(child => {
+        rowsHtml += `<tr>
+          <td>${child.firstName}</td>
+          <td>${child.lastName}</td>
+          <td>${child.nyeisId}</td>
+          <td>${child.city || ''}</td>
+          <td>${child.zipCode || ''}</td>
+          <td>${formatDate(child.dob)}</td>
+          <td>${formatDate(child.referralDate)}</td>
+          <td>${formatDate(child.initialIfspDate)}</td>
+          <td>${child.status}</td>
+          <td>
+            <select class="actions-dropdown" onchange="handleChildAction(this, ${child.id})">
+              <option value="">Action</option>
+              <option value="contacts">Contacts</option>
+              <option value="authorizations">Authorizations</option>
+              <option value="notes">Notes</option>
+              <option value="edit">View / Edit</option>
+              <option value="delete">Delete</option>
+            </select>
+          </td>
+        </tr>`;
+      });
+      document.getElementById("childrenTableBody").innerHTML = rowsHtml;
+    }
+    // Contacts View with Filter Row
+    function showContactsView(child) {
+      currentContactsChild = child;
+      document.getElementById("childrenSection").style.display = "none";
+      const container = document.getElementById("childDetailContainer");
+      let headerHtml = getChildHeader(child);
+      let viewHtml = headerHtml;
+      viewHtml += `
+        <h3>Contacts</h3>
+        <button id="addContactBtn">Add Contact</button>
+        <div id="contactFormContainer"></div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><input type="text" id="filterContactName" placeholder="Filter Name" oninput="updateContactsRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterContactPhone" placeholder="Filter Phone" oninput="updateContactsRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterContactAddress" placeholder="Filter Address" oninput="updateContactsRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterContactEmail" placeholder="Filter Email" oninput="updateContactsRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterContactMobile" placeholder="Filter Mobile" oninput="updateContactsRows()" style="width:100%;"/></th>
+                <th></th>
+              </tr>
+              <tr>
+                <th onclick="sortContacts('name')">Name <span class="sort-indicator">${contactSortState.column==='name' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortContacts('phoneNumber')">Phone Number <span class="sort-indicator">${contactSortState.column==='phoneNumber' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortContacts('address')">Address <span class="sort-indicator">${contactSortState.column==='address' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortContacts('email')">Email <span class="sort-indicator">${contactSortState.column==='email' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortContacts('mobilePhone')">Mobile Phone <span class="sort-indicator">${contactSortState.column==='mobilePhone' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="contactsTableBody"></tbody>
+          </table>
+        </div>
+      `;
+      container.innerHTML = viewHtml;
+      document.getElementById("addContactBtn").addEventListener("click", function() {
+        showContactFormInline(child.id, null);
+      });
+      updateContactsRows(child);
+    }
+    // Update contacts rows (defaulting to currentContactsChild if not provided)
+    function updateContactsRows(child = currentContactsChild) {
+      let contacts = (getData("contacts") || []).filter(ct => ct.childId === child.id);
+      const filterName = document.getElementById("filterContactName").value.trim().toLowerCase();
+      const filterPhone = document.getElementById("filterContactPhone").value.trim().toLowerCase();
+      const filterAddress = document.getElementById("filterContactAddress").value.trim().toLowerCase();
+      const filterEmail = document.getElementById("filterContactEmail").value.trim().toLowerCase();
+      const filterMobile = document.getElementById("filterContactMobile").value.trim().toLowerCase();
+      contacts = contacts.filter(ct => {
+        return ct.name.toLowerCase().includes(filterName) &&
+               ct.phoneNumber.toLowerCase().includes(filterPhone) &&
+               ct.address.toLowerCase().includes(filterAddress) &&
+               ct.email.toLowerCase().includes(filterEmail) &&
+               ct.mobilePhone.toLowerCase().includes(filterMobile);
+      });
+      if(contactSortState.column) {
+        contacts.sort((a, b) => {
+          const valA = a[contactSortState.column] || "";
+          const valB = b[contactSortState.column] || "";
+          return contactSortState.order === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        });
+      }
+      let rowsHtml = "";
+      contacts.forEach(contact => {
+        rowsHtml += `<tr>
+          <td>${contact.name}</td>
+          <td>${contact.phoneNumber}</td>
+          <td>${contact.address}</td>
+          <td>${contact.email}</td>
+          <td>${contact.mobilePhone}</td>
+          <td>
+            <select class="actions-dropdown" onchange="handleContactAction(this, ${child.id}, ${contact.id})">
+              <option value="">Action</option>
+              <option value="edit">View / Edit Contact</option>
+              <option value="delete">Delete Contact</option>
+            </select>
+          </td>
+        </tr>`;
+      });
+      document.getElementById("contactsTableBody").innerHTML = rowsHtml;
+    }
+    // Authorizations View with Filter Row
+    function showAuthorizationsView(child) {
+      currentAuthChild = child;
+      document.getElementById("childrenSection").style.display = "none";
+      const container = document.getElementById("childDetailContainer");
+      let headerHtml = getChildHeader(child);
+      let viewHtml = headerHtml;
+      viewHtml += `
+        <h3>Authorizations</h3>
+        <button id="addAuthBtn">Add Authorization</button>
+        <div id="authFormContainer"></div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><input type="text" id="filterAuthId" placeholder="Filter Auth ID" oninput="updateAuthRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterAuthType" placeholder="Filter Type" oninput="updateAuthRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterAuthStart" placeholder="Filter Start Date" oninput="updateAuthRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterAuthEnd" placeholder="Filter End Date" oninput="updateAuthRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterAuthUnits" placeholder="Filter Units" oninput="updateAuthRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterAuthStatus" placeholder="Filter Status" oninput="updateAuthRows()" style="width:100%;"/></th>
+                <th></th><th></th><th></th>
+              </tr>
+              <tr>
+                <th onclick="sortAuth('authorizationId')">Authorization ID <span class="sort-indicator">${authSortState.column==='authorizationId' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortAuth('type')">Type <span class="sort-indicator">${authSortState.column==='type' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortAuth('startDate')">Start Date <span class="sort-indicator">${authSortState.column==='startDate' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortAuth('endDate')">End Date <span class="sort-indicator">${authSortState.column==='endDate' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortAuth('unitsApproved')">Units Approved <span class="sort-indicator">${authSortState.column==='unitsApproved' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortAuth('status')">Status <span class="sort-indicator">${authSortState.column==='status' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th>Units Used</th>
+                <th>Units Remaining</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="authTableBody"></tbody>
+          </table>
+        </div>
+      `;
+      container.innerHTML = viewHtml;
+      document.getElementById("addAuthBtn").addEventListener("click", function() {
+        showAuthorizationFormInline(child.id, null);
+      });
+      updateAuthRows(child);
+    }
+    // Update authorizations rows (defaulting to currentAuthChild)
+    function updateAuthRows(child = currentAuthChild) {
+      let auths = (getData("authorizations") || []).filter(a => a.childId === child.id);
+      const notes = getData("notes") || [];
+      const filterAuthId = document.getElementById("filterAuthId").value.trim().toLowerCase();
+      const filterType = document.getElementById("filterAuthType").value.trim().toLowerCase();
+      const filterStart = document.getElementById("filterAuthStart").value.trim().toLowerCase();
+      const filterEnd = document.getElementById("filterAuthEnd").value.trim().toLowerCase();
+      const filterUnits = document.getElementById("filterAuthUnits").value.trim().toLowerCase();
+      const filterStatus = document.getElementById("filterAuthStatus").value.trim().toLowerCase();
+      auths = auths.filter(auth => {
+        const unitsUsed = notes.filter(n => n.childId === child.id && n.authorizationId === auth.authorizationId && n.category.toLowerCase() === "billable").length;
+        auth.unitsUsed = unitsUsed;
+        auth.unitsRemaining = auth.unitsApproved - unitsUsed;
+        return auth.authorizationId.toLowerCase().includes(filterAuthId) &&
+               auth.type.toLowerCase().includes(filterType) &&
+               formatDate(auth.startDate).toLowerCase().includes(filterStart) &&
+               formatDate(auth.endDate).toLowerCase().includes(filterEnd) &&
+               auth.unitsApproved.toString().toLowerCase().includes(filterUnits) &&
+               auth.status.toLowerCase().includes(filterStatus);
+      });
+      if(authSortState.column) {
+        auths.sort((a, b) => {
+          const valA = a[authSortState.column] || "";
+          const valB = b[authSortState.column] || "";
+          return authSortState.order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        });
+      }
+      let rowsHtml = "";
+      auths.forEach(auth => {
+        const unitsUsed = notes.filter(n => n.childId === child.id && n.authorizationId === auth.authorizationId && n.category.toLowerCase() === "billable").length;
+        const unitsRemaining = auth.unitsApproved - unitsUsed;
+        rowsHtml += `<tr>
+          <td>${auth.authorizationId}</td>
+          <td>${auth.type}</td>
+          <td>${formatDate(auth.startDate)}</td>
+          <td>${formatDate(auth.endDate)}</td>
+          <td>${auth.unitsApproved}</td>
+          <td>${auth.status}</td>
+          <td>${unitsUsed}</td>
+          <td>${unitsRemaining}</td>
+          <td>
+            <select class="actions-dropdown" onchange="handleAuthorizationAction(this, ${child.id}, ${auth.id})">
+              <option value="">Action</option>
+              <option value="edit">View / Edit Authorization</option>
+              <option value="delete">Delete Authorization</option>
+            </select>
+          </td>
+        </tr>`;
+      });
+      document.getElementById("authTableBody").innerHTML = rowsHtml;
+    }
+    // Notes View with Filter Row
+    function showNotesView(child) {
+      currentNoteChild = child;
+      document.getElementById("childrenSection").style.display = "none";
+      let headerHtml = getChildHeader(child);
+      let viewHtml = headerHtml;
+      viewHtml += `
+        <h3>Notes</h3>
+        <button id="addNoteBtn">Add Note</button>
+        <div id="noteFormContainer"></div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><input type="text" id="filterNoteAuth" placeholder="Filter Auth" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteDate" placeholder="Filter Date" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteStart" placeholder="Filter Start" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteEnd" placeholder="Filter End" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteContent" placeholder="Filter Note" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteCat" placeholder="Filter Category" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteQACat" placeholder="Filter QA" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteESign" placeholder="Filter E-Sign" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th></th>
+              </tr>
+              <tr>
+                <th onclick="sortNotes('authorizationId')">Authorization ID <span class="sort-indicator">${noteSortState.column==='authorizationId' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('date')">Date <span class="sort-indicator">${noteSortState.column==='date' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('startTime')">Start Time <span class="sort-indicator">${noteSortState.column==='startTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('endTime')">End Time <span class="sort-indicator">${noteSortState.column==='endTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('note')">Note <span class="sort-indicator">${noteSortState.column==='note' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('category')">Category <span class="sort-indicator">${noteSortState.column==='category' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('qaCategory')">QA Category <span class="sort-indicator">${noteSortState.column==='qaCategory' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('eSignature')">E-Signature <span class="sort-indicator">${noteSortState.column==='eSignature' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="notesTableBody"></tbody>
+          </table>
+        </div>
+      `;
+      document.getElementById("childDetailContainer").innerHTML = viewHtml;
+      document.getElementById("addNoteBtn").addEventListener("click", function() {
+        showNoteFormInline(child.id, null);
+      });
+      updateNotesRows(child);
+    }
+    // Update notes rows (defaulting to currentNoteChild)
+    function updateNotesRows(child = currentNoteChild) {
+      let notes = (getData("notes") || []).filter(n => n.childId === child.id);
+      const filterAuth = document.getElementById("filterNoteAuth").value.trim().toLowerCase();
+      const filterDate = document.getElementById("filterNoteDate").value.trim().toLowerCase();
+      const filterStart = document.getElementById("filterNoteStart").value.trim().toLowerCase();
+      const filterEnd = document.getElementById("filterNoteEnd").value.trim().toLowerCase();
+      const filterContent = document.getElementById("filterNoteContent").value.trim().toLowerCase();
+      const filterCat = document.getElementById("filterNoteCat").value.trim().toLowerCase();
+      const filterQACat = document.getElementById("filterNoteQACat").value.trim().toLowerCase();
+      const filterESign = document.getElementById("filterNoteESign").value.trim().toLowerCase();
+      notes = notes.filter(n => {
+        return n.authorizationId.toLowerCase().includes(filterAuth) &&
+               formatDate(n.date).toLowerCase().includes(filterDate) &&
+               formatTime(n.startTime).toLowerCase().includes(filterStart) &&
+               formatTime(n.endTime).toLowerCase().includes(filterEnd) &&
+               n.note.toLowerCase().includes(filterContent) &&
+               n.category.toLowerCase().includes(filterCat) &&
+               n.qaCategory.toLowerCase().includes(filterQACat) &&
+               n.eSignature.toLowerCase().includes(filterESign);
+      });
+      if(noteSortState.column) {
+        notes.sort((a, b) => {
+          const valA = a[noteSortState.column] || "";
+          const valB = b[noteSortState.column] || "";
+          return noteSortState.order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        });
+      }
+      let rowsHtml = "";
+      notes.forEach(note => {
+        rowsHtml += `<tr>
+          <td>${note.authorizationId}</td>
+          <td>${formatDate(note.date)}</td>
+          <td>${formatTime(note.startTime)}</td>
+          <td>${formatTime(note.endTime)}</td>
+          <td>${note.note}</td>
+          <td>${note.category}</td>
+          <td>${note.qaCategory}</td>
+          <td>${note.eSignature}</td>
+          <td>
+            <select class="actions-dropdown" onchange="handleNoteAction(this, ${child.id}, ${note.id})">
+              <option value="">Select Action</option>
+              <option value="edit">View / Edit Note</option>
+              <option value="delete">Delete Note</option>
+            </select>
+          </td>
+        </tr>`;
+      });
+      document.getElementById("notesTableBody").innerHTML = rowsHtml;
+    }
 
     /************************************
-     * STORAGE HELPERS
-     ************************************/
-    function getData(key) { return JSON.parse(localStorage.getItem(key)); }
-    function setData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
-    function getNextId(key) {
-      let id = parseInt(localStorage.getItem(key));
-      localStorage.setItem(key, (id + 1).toString());
-      return id;
-    }
-
-    /************************************
-     * INIT LOCAL STORAGE & DUMMY DATA
-     ************************************/
-    function initLocalStorage() {
-          // This function initializes the local storage with dummy data if it's empty.
-    
-          // Always ensure test user exists
-          if (!localStorage.getItem("serviceCoordinators")) {
-            // If serviceCoordinators data doesn't exist, create a test user.
-            const testUser = {
-              firstName: "Test",
-              lastName: "User",
-              phoneNumber: "",
-              email: "",
-              scId: "1",
-              loginName: "test",
-              loginPassword: "test",
-              npiNumber: ""
-            };
-            setData("serviceCoordinators", [testUser]); // Store the test user in local storage.
-          }
-          // Initialize nextChildId if it doesn't exist
-          if (!localStorage.getItem("nextChildId")) { localStorage.setItem("nextChildId", "1"); }
-          // Initialize nextContactId if it doesn't exist
-          if (!localStorage.getItem("nextContactId")) { localStorage.setItem("nextContactId", "1"); }
-          // Initialize nextAuthId if it doesn't exist
-          if (!localStorage.getItem("nextAuthId")) { localStorage.setItem("nextAuthId", "1"); }
-          // Initialize nextNoteId if it doesn't exist
-          if (!localStorage.getItem("nextNoteId")) { localStorage.setItem("nextNoteId", "1"); }
-    
-          // Comprehensive Test Data
-          if (!localStorage.getItem("children") || getData("children").length === 0) {
-            // If children data doesn't exist or is empty, create test children.
-            let testChildren = [
-              { id: 1, firstName: "Jane", lastName: "Doe", nyeisId: "NY001", dob: "2018-05-10", referralDate: "2024-01-15", initialIfspDate: "2024-02-20", status: "open", coordinatorId: "test", sex: "F", address: "123 Main St", city: "New York", state: "NY", zipCode: "10001" },
-              { id: 2, firstName: "John", lastName: "Smith", nyeisId: "NY002", dob: "2017-11-22", referralDate: "2023-12-01", initialIfspDate: "2024-01-05", status: "open", coordinatorId: "test", sex: "M", address: "456 Park Ave", city: "Brooklyn", state: "NY", zipCode: "11201" },
-              { id: 3, firstName: "Emily", lastName: "Chen", nyeisId: "NY003", dob: "2019-02-01", referralDate: "2024-02-01", initialIfspDate: "2024-03-10", status: "open", coordinatorId: "test", sex: "F", address: "789 Broadway", city: "Queens", state: "NY", zipCode: "11355" }
-            ];
-            setData("children", testChildren); // Store the test children in local storage.
-          }
-    
-          if (!localStorage.getItem("authorizations") || getData("authorizations").length === 0) {
-            // If authorizations data doesn't exist or is empty, create test authorizations.
-            let testAuthorizations = [
-              { id: 1, childId: 1, authorizationId: "AUTH2024-001", type: "EI Services", startDate: "2024-02-20", endDate: "2024-08-20", unitsApproved: 30, status: "open" },
-              { id: 2, childId: 2, authorizationId: "AUTH2024-002", type: "OT Services", startDate: "2024-01-05", endDate: "2024-07-05", unitsApproved: 25, status: "open" },
-              { id: 3, childId: 3, authorizationId: "AUTH2024-003", type: "PT Services", startDate: "2024-03-10", endDate: "2024-09-10", unitsApproved: 20, status: "open" }
-            ];
-            setData("authorizations", testAuthorizations); // Store the test authorizations in local storage.
-          }
-    
-          if (!localStorage.getItem("notes") || getData("notes").length === 0) {
-            // If notes data doesn't exist or is empty, create test notes.
-            let testNotes = [
-              {
-                id: 1, childId: 1, authorizationId: "AUTH2024-001", date: "2024-03-01", startTime: "10:00", endTime: "11:00",
-                note: `Session with Jane focused on improving fine motor skills. Activities included playing with building blocks, drawing, and using scissors. Jane showed great progress and was able to complete several tasks independently.
-    
-                Next session will focus on increasing the difficulty of the activities and introducing new challenges.`,
-                category: "Billable", qaCategory: "one", eSignature: "Dr. Smith"
-              },
-              {
-                id: 2, childId: 2, authorizationId: "AUTH2024-002", date: "2024-02-10", startTime: "14:00", endTime: "15:00",
-                note: `John's OT session involved sensory integration activities to address tactile defensiveness. We used various textures and materials to help John become more comfortable with different sensations.
-    
-                He initially showed some resistance but gradually became more engaged. We will continue to work on sensory integration in future sessions.`,
-                category: "Billable", qaCategory: "two", eSignature: "Dr. Jones"
-              },
-              {
-                id: 3, childId: 3, authorizationId: "AUTH2024-003", date: "2024-04-01", startTime: "09:30", endTime: "10:30",
-                note: `Emily's PT session focused on improving gross motor skills and balance. Activities included walking on a balance beam, jumping jacks, and playing catch.
-    
-                Emily demonstrated good coordination and was able to maintain her balance throughout the session. We will continue to work on strengthening her core muscles and improving her overall stability.`,
-                category: "Billable", qaCategory: "one", eSignature: "Dr. Chen"
-              },
-              {
-                id: 4, childId: 1, authorizationId: "AUTH2024-001", date: "2024-03-15", startTime: "11:00", endTime: "12:00",
-                note: `Second session with Jane. We worked on handwriting skills and letter recognition. Jane is showing improvement in her ability to form letters correctly.
-    
-                We also practiced using a keyboard to improve her typing skills. Next session will focus on sentence construction and creative writing.`,
-                category: "Billable", qaCategory: "two", eSignature: "Dr. Smith"
-              },
-              {
-                id: 5, childId: 2, authorizationId: "AUTH2024-002", date: "2024-03-01", startTime: "15:00", endTime: "16:00",
-                note: `Another OT session with John. We continued to work on sensory integration and introduced new activities to challenge him.
-    
-                John is becoming more tolerant of different textures and is starting to enjoy the sensory activities. We will gradually increase the intensity of the activities to further improve his sensory processing skills.`,
-                category: "Billable", qaCategory: "three", eSignature: "Dr. Jones"
-              },
-              {
-                id: 6, childId: 3, authorizationId: "AUTH2024-003", date: "2024-04-15", startTime: "10:00", endTime: "11:00",
-                note: `Another PT session with Emily. We focused on improving her coordination and agility. Activities included running, skipping, and playing hopscotch.
-    
-                Emily is showing great enthusiasm and is making steady progress. We will continue to work on improving her overall physical fitness and preparing her for more advanced activities.`,
-                category: "Billable", qaCategory: "one", eSignature: "Dr. Chen"
-              }
-            ];
-            setData("notes", testNotes); // Store the test notes in local storage.
-          }
-        }
-
-    /************************************
-     * DELETE FUNCTIONS (with confirmation)
-     ************************************/
-    function deleteChild(childId) {
-      if (confirm("Are you sure? This action is permanent and will delete the child and all related data.")) {
-        const children = getData("children").filter(c => c.id !== childId);
-        setData("children", children);
-        setData("contacts", getData("contacts").filter(c => c.childId !== childId));
-        setData("authorizations", getData("authorizations").filter(a => a.childId !== childId));
-        setData("notes", getData("notes").filter(n => n.childId !== childId));
-        renderChildrenTable();
-      }
-    }
-    function deleteContact(contactId, childId) {
-      if (confirm("Are you sure? This action is permanent.")) {
-        const contacts = getData("contacts").filter(c => c.id !== contactId);
-        setData("contacts", contacts);
-        const child = getData("children").find(c => c.id === childId);
-        showContactsView(child);
-      }
-    }
-    function deleteAuthorization(authId, childId) {
-      const allAuths = getData("authorizations");
-      const authToDelete = allAuths.find(a => a.id === authId);
-      if (!authToDelete) return;
-      if (confirm("Are you sure? This action is permanent and will delete all notes associated with this authorization.")) {
-        setData("authorizations", allAuths.filter(a => a.id !== authId));
-        setData("notes", getData("notes").filter(n => n.authorizationId !== authToDelete.authorizationId));
-        const child = getData("children").find(c => c.id === childId);
-        showAuthorizationsView(child);
-      }
-    }
-    function deleteNote(noteId, childId) {
-      if (confirm("Are you sure? This action is permanent.")) {
-        setData("notes", getData("notes").filter(n => n.id !== noteId));
-        const child = getData("children").find(c => c.id === childId);
-        showNotesView(child);
-      }
-    }
-
-    /************************************
-     * SORT FUNCTIONS
-     ************************************/
-    function sortChildren(key) {
-      if(childSortState.column === key) {
-        childSortState.order = childSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        childSortState.column = key;
-        childSortState.order = 'asc';
-      }
-      renderChildrenTable();
-    }
-    function sortContacts(key) {
-      if(contactSortState.column === key) {
-        contactSortState.order = contactSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        contactSortState.column = key;
-        contactSortState.order = 'asc';
-      }
-      showContactsView(currentContactsChild);
-    }
-    function sortAuth(key) {
-      if(authSortState.column === key) {
-        authSortState.order = authSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        authSortState.column = key;
-        authSortState.order = 'asc';
-      }
-      showAuthorizationsView(currentAuthChild);
-    }
-    function sortNotes(key) {
-      if(noteSortState.column === key) {
-        noteSortState.order = noteSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        noteSortState.column = key;
-        noteSortState.order = 'asc';
-      }
-      showNotesView(currentNoteChild);
-    }
-
-    /************************************
-     * ACTION HANDLERS FOR DROP-DOWNS
+     * ACTION HANDLERS
      ************************************/
     function handleChildAction(selectElem, childId) {
       const action = selectElem.value;
@@ -603,6 +801,46 @@ function applyFormat(command) {
         showNoteFormInline(childId, noteId);
       } else if (action === "delete") {
         deleteNote(noteId, childId);
+      }
+    }
+
+    /************************************
+     * DELETE FUNCTIONS (with confirmation)
+     ************************************/
+    function deleteChild(childId) {
+      if (confirm("Are you sure? This action is permanent and will delete the child and all related data.")) {
+        const children = getData("children").filter(c => c.id !== childId);
+        setData("children", children);
+        setData("contacts", getData("contacts").filter(c => c.childId !== childId));
+        setData("authorizations", getData("authorizations").filter(a => a.childId !== childId));
+        setData("notes", getData("notes").filter(n => n.childId !== childId));
+        renderChildrenTable();
+      }
+    }
+    function deleteContact(contactId, childId) {
+      if (confirm("Are you sure? This action is permanent.")) {
+        const contacts = getData("contacts").filter(c => c.id !== contactId);
+        setData("contacts", contacts);
+        const child = getData("children").find(c => c.id === childId);
+        showContactsView(child);
+      }
+    }
+    function deleteAuthorization(authId, childId) {
+      const allAuths = getData("authorizations");
+      const authToDelete = allAuths.find(a => a.id === authId);
+      if (!authToDelete) return;
+      if (confirm("Are you sure? This action is permanent and will delete all notes associated with this authorization.")) {
+        setData("authorizations", allAuths.filter(a => a.id !== authId));
+        setData("notes", getData("notes").filter(n => n.authorizationId !== authToDelete.authorizationId));
+        const child = getData("children").find(c => c.id === childId);
+        showAuthorizationsView(child);
+      }
+    }
+    function deleteNote(noteId, childId) {
+      if (confirm("Are you sure? This action is permanent.")) {
+        setData("notes", getData("notes").filter(n => n.id !== noteId));
+        const child = getData("children").find(c => c.id === childId);
+        showNotesView(child);
       }
     }
 
@@ -685,77 +923,8 @@ function applyFormat(command) {
     function hideChildForm() { document.getElementById("childFormContainer").innerHTML = ""; }
 
     /************************************
-     * CONTACTS VIEW & INLINE FORM
+     * CONTACT INLINE FORM
      ************************************/
-    function showContactsView(child) {
-      currentContactsChild = child;
-      document.getElementById("childrenSection").style.display = "none";
-      let contacts = getData("contacts").filter(ct => ct.childId === child.id);
-      if(contactSortState.column) {
-        contacts.sort((a, b) => {
-          const valA = a[contactSortState.column] || "";
-          const valB = b[contactSortState.column] || "";
-          return contactSortState.order === 'asc'
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        });
-      }
-      let viewHtml = `<button onclick="backToKidsView()">Back to Children</button>`;
-      viewHtml += `
-        <h3>Contacts</h3>
-        <p>
-          <strong>Name:</strong> ${child.firstName} ${child.lastName} &nbsp;&nbsp;
-          <strong>NYEIS ID:</strong> ${child.nyeisId} &nbsp;&nbsp;
-          <strong>Status:</strong> ${child.status} &nbsp;&nbsp;
-          <strong>DOB:</strong> ${formatDate(child.dob)}
-        </p>
-        <button id="addContactBtn">Add Contact</button>
-        <div id="contactFormContainer"></div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th onclick="sortContacts('name')">Name <span class="sort-indicator">${contactSortState.column==='name' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortContacts('phoneNumber')">Phone Number <span class="sort-indicator">${contactSortState.column==='phoneNumber' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortContacts('address')">Address <span class="sort-indicator">${contactSortState.column==='address' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortContacts('email')">Email <span class="sort-indicator">${contactSortState.column==='email' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortContacts('mobilePhone')">Mobile Phone <span class="sort-indicator">${contactSortState.column==='mobilePhone' ? (contactSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>`;
-      contacts.forEach(contact => {
-        viewHtml += `
-          <tr>
-            <td>${contact.name}</td>
-            <td>${contact.phoneNumber}</td>
-            <td>${contact.address}</td>
-            <td>${contact.email}</td>
-            <td>${contact.mobilePhone}</td>
-            <td>
-              <select class="actions-dropdown" onchange="handleContactAction(this, ${child.id}, ${contact.id})">
-                <option value="">Action</option>
-                <option value="edit">View / Edit Contact</option>
-                <option value="delete">Delete Contact</option>
-              </select>
-            </td>
-          </tr>
-        `;
-      });
-      viewHtml += `</tbody></table>`;
-      document.getElementById("childDetailContainer").innerHTML = viewHtml;
-      document.getElementById("addContactBtn").addEventListener("click", function() {
-        showContactFormInline(child.id, null);
-      });
-    }
-    function sortContacts(key) {
-      if(contactSortState.column === key) {
-        contactSortState.order = contactSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        contactSortState.column = key;
-        contactSortState.order = 'asc';
-      }
-      showContactsView(currentContactsChild);
-    }
     function showContactFormInline(childId, contactId) {
       const contact = contactId ? getData("contacts").find(ct => ct.id === contactId) : null;
       const formHtml = `
@@ -788,7 +957,7 @@ function applyFormat(command) {
           email: document.getElementById("contactEmail").value,
           mobilePhone: document.getElementById("contactMobile").value
         };
-        let contacts = getData("contacts");
+        let contacts = getData("contacts") || [];
         if (contact) {
           contacts = contacts.map(ct => ct.id === contact.id ? newContact : ct);
         } else {
@@ -803,86 +972,8 @@ function applyFormat(command) {
     function hideContactForm() { document.getElementById("contactFormContainer").innerHTML = ""; }
 
     /************************************
-     * AUTHORIZATIONS VIEW & INLINE FORM
+     * AUTHORIZATION INLINE FORM
      ************************************/
-    function showAuthorizationsView(child) {
-      currentAuthChild = child;
-      document.getElementById("childrenSection").style.display = "none";
-      let auths = getData("authorizations").filter(a => a.childId === child.id);
-      const notes = getData("notes");
-      if(authSortState.column) {
-        auths.sort((a, b) => {
-          const valA = a[authSortState.column] || "";
-          const valB = b[authSortState.column] || "";
-          return authSortState.order === 'asc'
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        });
-      }
-      let viewHtml = `<button onclick="backToKidsView()">Back to Children</button>`;
-      viewHtml += `
-        <h3>Authorizations</h3>
-        <p>
-          <strong>Name:</strong> ${child.firstName} ${child.lastName} &nbsp;&nbsp;
-          <strong>NYEIS ID:</strong> ${child.nyeisId} &nbsp;&nbsp;
-          <strong>Status:</strong> ${child.status} &nbsp;&nbsp;
-          <strong>DOB:</strong> ${formatDate(child.dob)}
-        </p>
-        <button id="addAuthBtn">Add Authorization</button>
-        <div id="authFormContainer"></div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th onclick="sortAuth('authorizationId')">Authorization ID <span class="sort-indicator">${authSortState.column==='authorizationId' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortAuth('type')">Type <span class="sort-indicator">${authSortState.column==='type' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortAuth('startDate')">Start Date <span class="sort-indicator">${authSortState.column==='startDate' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortAuth('endDate')">End Date <span class="sort-indicator">${authSortState.column==='endDate' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortAuth('unitsApproved')">Units Approved <span class="sort-indicator">${authSortState.column==='unitsApproved' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortAuth('status')">Status <span class="sort-indicator">${authSortState.column==='status' ? (authSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th>Units Used</th>
-              <th>Units Remaining</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>`;
-      auths.forEach(auth => {
-        const unitsUsed = notes.filter(n => n.childId === child.id && n.authorizationId === auth.authorizationId && n.category.toLowerCase() === "billable").length;
-        const unitsRemaining = auth.unitsApproved - unitsUsed;
-        viewHtml += `
-          <tr>
-            <td>${auth.authorizationId}</td>
-            <td>${auth.type}</td>
-            <td>${formatDate(auth.startDate)}</td>
-            <td>${formatDate(auth.endDate)}</td>
-            <td>${auth.unitsApproved}</td>
-            <td>${auth.status}</td>
-            <td>${unitsUsed}</td>
-            <td>${unitsRemaining}</td>
-            <td>
-              <select class="actions-dropdown" onchange="handleAuthorizationAction(this, ${child.id}, ${auth.id})">
-                <option value="">Action</option>
-                <option value="edit">View / Edit Authorization</option>
-                <option value="delete">Delete Authorization</option>
-              </select>
-            </td>
-          </tr>
-        `;
-      });
-      viewHtml += `</tbody></table>`;
-      document.getElementById("childDetailContainer").innerHTML = viewHtml;
-      document.getElementById("addAuthBtn").addEventListener("click", function() {
-        showAuthorizationFormInline(child.id, null);
-      });
-    }
-    function sortAuth(key) {
-      if(authSortState.column === key) {
-        authSortState.order = authSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        authSortState.column = key;
-        authSortState.order = 'asc';
-      }
-      showAuthorizationsView(currentAuthChild);
-    }
     function showAuthorizationFormInline(childId, authId) {
       const auth = authId ? getData("authorizations").find(a => a.id === authId) : null;
       const formHtml = `
@@ -925,7 +1016,7 @@ function applyFormat(command) {
           unitsApproved: parseInt(document.getElementById("authUnitsApproved").value),
           status: document.getElementById("authStatus").value
         };
-        let auths = getData("authorizations");
+        let auths = getData("authorizations") || [];
         if (auth) {
           auths = auths.map(a => a.id === auth.id ? newAuth : a);
         } else {
@@ -940,97 +1031,14 @@ function applyFormat(command) {
     function hideAuthForm() { document.getElementById("authFormContainer").innerHTML = ""; }
 
     /************************************
-     * NOTES VIEW & INLINE FORM (with eligible authorization drop-down)
+     * NOTE INLINE FORM
      ************************************/
-    function showNotesView(child) {
-      currentNoteChild = child;
-      document.getElementById("childrenSection").style.display = "none";
-      let notes = getData("notes").filter(n => n.childId === child.id);
-      if(noteSortState.column) {
-        notes.sort((a, b) => {
-          const valA = a[noteSortState.column] || "";
-          const valB = b[noteSortState.column] || "";
-          return noteSortState.order === 'asc'
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        });
-      }
-      let viewHtml = `<button onclick="backToKidsView()">Back to Children</button>`;
-      viewHtml += `
-        <h3>Notes</h3>
-        <p>
-          <strong>Name:</strong> ${child.firstName} ${child.lastName} &nbsp;&nbsp;
-          <strong>NYEIS ID:</strong> ${child.nyeisId} &nbsp;&nbsp;
-          <strong>Status:</strong> ${child.status} &nbsp;&nbsp;
-          <strong>DOB:</strong> ${formatDate(child.dob)}
-        </p>
-        <button id="addNoteBtn">Add Note</button>
-        <div id="noteFormContainer"></div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th onclick="sortNotes('authorizationId')">Authorization ID <span class="sort-indicator">${noteSortState.column==='authorizationId' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('date')">Date <span class="sort-indicator">${noteSortState.column==='date' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('startTime')">Start Time <span class="sort-indicator">${noteSortState.column==='startTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('endTime')">End Time <span class="sort-indicator">${noteSortState.column==='endTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('note')">Note <span class="sort-indicator">${noteSortState.column==='note' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('category')">Category <span class="sort-indicator">${noteSortState.column==='category' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('qaCategory')">QA Category <span class="sort-indicator">${noteSortState.column==='qaCategory' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('eSignature')">E-Signature <span class="sort-indicator">${noteSortState.column==='eSignature' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>`;
-      notes.forEach(note => {
-        viewHtml += `
-          <tr>
-            <td>${note.authorizationId}</td>
-            <td>${formatDate(note.date)}</td>
-            <td>${formatTime(note.startTime)}</td>
-            <td>${formatTime(note.endTime)}</td>
-            <td>${note.note}</td>
-            <td>${note.category}</td>
-            <td>${note.qaCategory}</td>
-            <td>${note.eSignature}</td>
-            <td>
-              <select class="actions-dropdown" onchange="handleNoteAction(this, ${child.id}, ${note.id})">
-                <option value="">Select Action</option>
-                <option value="edit">View / Edit Note</option>
-                <option value="delete">Delete Note</option>
-              </select>
-            </td>
-          </tr>
-        `;
-      });
-      viewHtml += `</tbody></table>`;
-      document.getElementById("childDetailContainer").innerHTML = viewHtml;
-      document.getElementById("addNoteBtn").addEventListener("click", function() {
-        showNoteFormInline(child.id, null);
-      });
-    }
-    function sortNotes(key) {
-      if(noteSortState.column === key) {
-        noteSortState.order = noteSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        noteSortState.column = key;
-        noteSortState.order = 'asc';
-      }
-      showNotesView(currentNoteChild);
-    }
-    // Note form with new fields: start time auto defaults to current time,
-    // a "Total Time" field where the user enters a duration in minutes,
-    // and a read-only End Time field automatically calculated.
-    // Also, the Note field is now a contenteditable div for rich text.
     function showNoteFormInline(childId, noteId) {
       const note = noteId ? getData("notes").find(n => n.id === noteId) : null;
       const currentTime = note ? note.startTime : new Date().toTimeString().substring(0,5);
       const defaultDate = getTodayDate();
-      // We'll let the total time default to 0 if not provided.
       const defaultTotalTime = note ? "" : "0";
-      // Calculate default end time from currentTime and defaultTotalTime.
       const defaultEndTime = calculateEndTime(currentTime, defaultTotalTime);
-      
-      // Get eligible authorizations for the child
       let eligibleAuths = getEligibleAuthorizations(childId);
       eligibleAuths.sort((a, b) => b.unitsRemaining - a.unitsRemaining);
       let optionsHtml = "";
@@ -1050,7 +1058,6 @@ function applyFormat(command) {
           defaultAuthId = eligibleAuths[0].authorizationId;
         }
       }
-      
       const formHtml = `
         <h3>${note ? "Edit Note" : "Add Note"}</h3>
         <form id="noteForm">
@@ -1074,7 +1081,7 @@ function applyFormat(command) {
             <button type="button" onclick="applyFormat('underline')" title="Underline"><u>U</u></button>
             <button type="button" onclick="applyFormat('insertUnorderedList')" title="Bullet List">&bull;</button>
           </div>
-          <div id="noteContent" contenteditable="true" style="min-height:150px; border:1px solid #ccc; padding:5px;">${note ? note.note : ""}</div>
+          <div id="noteContent" contenteditable="true" style="min-height:150px; border:1px solid #ccc; padding:10px; background: white; line-height: 1.5;">${note ? note.note : ""}</div>
           <label for="noteCategory">Category:</label>
           <select id="noteCategory" required>
             <option value="Billable" ${note && note.category==="Billable" ? "selected" : ""}>Billable</option>
@@ -1098,12 +1105,19 @@ function applyFormat(command) {
       if(defaultAuthId !== "") {
         document.getElementById("noteAuthorizationId").value = defaultAuthId;
       }
-      // Add event listeners to recalc end time when start time or total time changes.
       document.getElementById("noteStartTime").addEventListener("change", updateEndTime);
       document.getElementById("noteTotalTime").addEventListener("input", updateEndTime);
       document.getElementById("noteForm").addEventListener("submit", function(e) {
         e.preventDefault();
-        // Get the rich text note from the contenteditable div.
+        const selectedAuthId = document.getElementById("noteAuthorizationId").value;
+        const noteDate = document.getElementById("noteDate").value;
+        const auth = getData("authorizations").find(a => a.authorizationId === selectedAuthId);
+        if (noteDate < auth.startDate || noteDate > auth.endDate) {
+          document.getElementById("noteFormError").textContent = 
+            `Error: Note date must be between ${formatDate(auth.startDate)} and ${formatDate(auth.endDate)}. Please select a different authorization or change the note date.`;
+          return;
+        }
+        document.getElementById("noteFormError").textContent = "";
         const noteContent = document.getElementById("noteContent").innerHTML;
         const newNote = {
           id: note ? note.id : getNextId("nextNoteId"),
@@ -1258,283 +1272,102 @@ function applyFormat(command) {
     }
 
     /************************************
-     * CHILDREN TABLE VIEW (with sorting)
+     * INIT LOCAL STORAGE & SAMPLE DATA
      ************************************/
-    function renderChildrenTable() {
-      let children = getData("children") || [];
-      children = children.filter(child => child.coordinatorId === currentUser.loginName);
-      if(childSortState.column) {
-        children.sort((a, b) => {
-          const valA = a[childSortState.column] || "";
-          const valB = b[childSortState.column] || "";
-          return childSortState.order === 'asc'
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        });
-      }
-      const container = document.getElementById("childrenTableContainer");
-      let tableHtml = `
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-            <tr>
-              <th onclick="sortChildren('firstName')">First Name <span class="sort-indicator">${childSortState.column==='firstName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('lastName')">Last Name <span class="sort-indicator">${childSortState.column==='lastName' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('nyeisId')">NYEIS ID <span class="sort-indicator">${childSortState.column==='nyeisId' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('city')">City <span class="sort-indicator">${childSortState.column==='city' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('zipCode')">Zip Code <span class="sort-indicator">${childSortState.column==='zipCode' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('dob')">DOB <span class="sort-indicator">${childSortState.column==='dob' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('referralDate')">Referral Date <span class="sort-indicator">${childSortState.column==='referralDate' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('initialIfspDate')">Initial IFSP Date <span class="sort-indicator">${childSortState.column==='initialIfspDate' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortChildren('status')">Status <span class="sort-indicator">${childSortState.column==='status' ? (childSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>`;
-      children.forEach(child => {
-        tableHtml += `
-          <tr>
-            <td>${child.firstName}</td>
-            <td>${child.lastName}</td>
-            <td>${child.nyeisId}</td>
-            <td>${child.city || ''}</td>
-            <td>${child.zipCode || ''}</td>
-            <td>${formatDate(child.dob)}</td>
-            <td>${formatDate(child.referralDate)}</td>
-            <td>${formatDate(child.initialIfspDate)}</td>
-            <td>${child.status}</td>
-            <td>
-              <select class="actions-dropdown" onchange="handleChildAction(this, ${child.id})">
-                <option value="">Action</option>
-                        <option value="contacts">Contacts</option>
-                        <option value="authorizations">Authorizations</option>
-                        <option value="notes">Notes</option>
-                        <option value="edit">View / Edit</option>
-                        <option value="delete">Delete</option>
-              </select>
-            </td>
-          </tr>
-        `;
-      });
-      tableHtml += `</tbody></table>
-        </div>`;
-      container.innerHTML = tableHtml;
-    }
-    function sortChildren(key) {
-      if(childSortState.column === key) {
-        childSortState.order = childSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        childSortState.column = key;
-        childSortState.order = 'asc';
-      }
-      renderChildrenTable();
-    }
-
-    /************************************
-     * NOTES VIEW & INLINE FORM (with eligible authorization drop-down, start time & total time)
-     ************************************/
-    function showNotesView(child) {
-      currentNoteChild = child;
-      document.getElementById("childrenSection").style.display = "none";
-      let notes = getData("notes").filter(n => n.childId === child.id);
-      if(noteSortState.column) {
-        notes.sort((a, b) => {
-          const valA = a[noteSortState.column] || "";
-          const valB = b[noteSortState.column] || "";
-          return noteSortState.order === 'asc'
-            ? valA.localeCompare(valB)
-            : valB.localeCompare(valA);
-        });
-      }
-      let viewHtml = `<button onclick="backToKidsView()">Back to Children</button>`;
-      viewHtml += `
-        <h3>Notes</h3>
-        <p>
-          <strong>Name:</strong> ${child.firstName} ${child.lastName} &nbsp;&nbsp;
-          <strong>NYEIS ID:</strong> ${child.nyeisId} &nbsp;&nbsp;
-          <strong>Status:</strong> ${child.status} &nbsp;&nbsp;
-          <strong>DOB:</strong> ${formatDate(child.dob)}
-        </p>
-        <button id="addNoteBtn">Add Note</button>
-        <div id="noteFormContainer"></div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th onclick="sortNotes('authorizationId')">Authorization ID <span class="sort-indicator">${noteSortState.column==='authorizationId' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('date')">Date <span class="sort-indicator">${noteSortState.column==='date' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('startTime')">Start Time <span class="sort-indicator">${noteSortState.column==='startTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('endTime')">End Time <span class="sort-indicator">${noteSortState.column==='endTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('note')">Note <span class="sort-indicator">${noteSortState.column==='note' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('category')">Category <span class="sort-indicator">${noteSortState.column==='category' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('qaCategory')">QA Category <span class="sort-indicator">${noteSortState.column==='qaCategory' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th onclick="sortNotes('eSignature')">E-Signature <span class="sort-indicator">${noteSortState.column==='eSignature' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>`;
-      notes.forEach(note => {
-        viewHtml += `
-          <tr>
-            <td>${note.authorizationId}</td>
-            <td>${formatDate(note.date)}</td>
-            <td>${formatTime(note.startTime)}</td>
-            <td>${formatTime(note.endTime)}</td>
-            <td>${note.note}</td>
-            <td>${note.category}</td>
-            <td>${note.qaCategory}</td>
-            <td>${note.eSignature}</td>
-            <td>
-              <select class="actions-dropdown" onchange="handleNoteAction(this, ${child.id}, ${note.id})">
-                <option value="">Select Action</option>
-                <option value="edit">View / Edit Note</option>
-                <option value="delete">Delete Note</option>
-              </select>
-            </td>
-          </tr>
-        `;
-      });
-      viewHtml += `</tbody></table>`;
-      document.getElementById("childDetailContainer").innerHTML = viewHtml;
-      document.getElementById("addNoteBtn").addEventListener("click", function() {
-        showNoteFormInline(child.id, null);
-      });
-    }
-    function sortNotes(key) {
-      if(noteSortState.column === key) {
-        noteSortState.order = noteSortState.order === 'asc' ? 'desc' : 'asc';
-      } else {
-        noteSortState.column = key;
-        noteSortState.order = 'asc';
-      }
-      showNotesView(currentNoteChild);
-    }
-    // Note form with modifications: start time defaults to current time, a new Total Time field, and a read-only End Time computed automatically.
-    function showNoteFormInline(childId, noteId) {
-      const note = noteId ? getData("notes").find(n => n.id === noteId) : null;
-      const currentTime = note ? note.startTime : new Date().toTimeString().substring(0,5);
-      const defaultDate = getTodayDate();
-      const defaultTotalTime = note ? "" : "0";
-      const defaultEndTime = calculateEndTime(currentTime, defaultTotalTime);
-      let eligibleAuths = getEligibleAuthorizations(childId);
-      eligibleAuths.sort((a, b) => b.unitsRemaining - a.unitsRemaining);
-      let optionsHtml = "";
-      if (eligibleAuths.length > 0) {
-        eligibleAuths.forEach(a => {
-          optionsHtml += `<option value="${a.authorizationId}">${a.authorizationId}: Start ${formatDate(a.startDate)} - End ${formatDate(a.endDate)}, Units Remaining: ${a.unitsRemaining}</option>`;
-        });
-      } else {
-        optionsHtml = `<option value="">No eligible authorizations</option>`;
-      }
-      let defaultAuthId = "";
-      if (eligibleAuths.length > 0) {
-        if (note && note.authorizationId) {
-          const found = eligibleAuths.find(a => a.authorizationId === note.authorizationId);
-          defaultAuthId = found ? note.authorizationId : eligibleAuths[0].authorizationId;
-        } else {
-          defaultAuthId = eligibleAuths[0].authorizationId;
-        }
-      }
-      const formHtml = `
-        <h3>${note ? "Edit Note" : "Add Note"}</h3>
-        <form id="noteForm">
-          <label for="noteAuthorizationId">Authorization:</label>
-          <select id="noteAuthorizationId" required>
-            <option value="">--Select Authorization--</option>
-            ${optionsHtml}
-          </select>
-          <label for="noteDate">Date (MM/DD/YYYY):</label>
-          <input type="date" id="noteDate" required value="${note ? note.date : defaultDate}"/>
-          <label for="noteStartTime">Start Time:</label>
-          <input type="time" id="noteStartTime" required value="${note ? note.startTime : currentTime}"/>
-          <label for="noteTotalTime">Total Time (minutes):</label>
-          <input type="number" id="noteTotalTime" placeholder="Enter duration in minutes" value="${note ? "" : defaultTotalTime}" />
-          <label for="noteEndTime">End Time:</label>
-          <input type="time" id="noteEndTime" readonly value="${note ? note.endTime : defaultEndTime}" />
-          <label for="noteContent">Note:</label>
-          <div id="noteToolbar">
-            <button type="button" onclick="applyFormat('bold')" title="Bold"><b>B</b></button>
-            <button type="button" onclick="applyFormat('italic')" title="Italic"><i>I</i></button>
-            <button type="button" onclick="applyFormat('underline')" title="Underline"><u>U</u></button>
-            <button type="button" onclick="applyFormat('insertUnorderedList')" title="Bullet List">&bull;</button>
-          </div>
-          <div id="noteContent" contenteditable="true" style="min-height:150px; border:1px solid #ccc; padding:10px; background: white; line-height: 1.5;">${note ? note.note : ""}</div>
-          <label for="noteCategory">Category:</label>
-          <select id="noteCategory" required>
-            <option value="Billable" ${note && note.category==="Billable" ? "selected" : ""}>Billable</option>
-            <option value="Non-Billable" ${note && note.category==="Non-Billable" ? "selected" : ""}>Non-Billable</option>
-          </select>
-          <label for="noteQaCategory">QA Category:</label>
-          <select id="noteQaCategory" required>
-            <option value="one" ${note && note.qaCategory==="one" ? "selected" : ""}>one</option>
-            <option value="two" ${note && note.qaCategory==="two" ? "selected" : ""}>two</option>
-            <option value="three" ${note && note.qaCategory==="three" ? "selected" : ""}>three</option>
-          </select>
-          <label for="noteESignature">E-Signature:</label>
-          <input type="text" id="noteESignature" required value="${note ? note.eSignature : ""}"/>
-          <br/>
-          <button type="submit">${note ? "Update" : "Add"}</button>
-          <button type="button" onclick="hideNoteForm()">Cancel</button>
-        </form>
-        <div id="noteFormError" class="error"></div>
-      `;
-      document.getElementById("noteFormContainer").innerHTML = formHtml;
-      if(defaultAuthId !== "") {
-        document.getElementById("noteAuthorizationId").value = defaultAuthId;
-      }
-      // Add event listeners to update the end time when start time or total time changes.
-      document.getElementById("noteStartTime").addEventListener("change", updateEndTime);
-      document.getElementById("noteTotalTime").addEventListener("input", updateEndTime);
-      document.getElementById("noteForm").addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        // Get the selected authorization and note date
-        const selectedAuthId = document.getElementById("noteAuthorizationId").value;
-        const noteDate = document.getElementById("noteDate").value;
-        const auth = getData("authorizations").find(a => a.authorizationId === selectedAuthId);
-        
-        // Check if note date is within authorization date range
-        if (noteDate < auth.startDate || noteDate > auth.endDate) {
-          document.getElementById("noteFormError").textContent = 
-            `Error: Note date must be between ${formatDate(auth.startDate)} and ${formatDate(auth.endDate)}. Please select a different authorization or change the note date.`;
-          return;
-        }
-        
-        // Clear any previous error message
-        document.getElementById("noteFormError").textContent = "";
-        
-        const noteContent = document.getElementById("noteContent").innerHTML;
-        const newNote = {
-          id: note ? note.id : getNextId("nextNoteId"),
-          childId: childId,
-          authorizationId: document.getElementById("noteAuthorizationId").value,
-          date: document.getElementById("noteDate").value,
-          startTime: document.getElementById("noteStartTime").value,
-          endTime: document.getElementById("noteEndTime").value,
-          note: noteContent,
-          category: document.getElementById("noteCategory").value,
-          qaCategory: document.getElementById("noteQaCategory").value,
-          eSignature: document.getElementById("noteESignature").value
+    function initLocalStorage() {
+      // Updated Test User with full data and name Bob Dillian
+      if (!localStorage.getItem("serviceCoordinators")) {
+        const testUser = {
+          firstName: "Bob",
+          lastName: "Dillian",
+          phoneNumber: "555-123-4567",
+          email: "bob.dillian@example.com",
+          scId: "1",
+          loginName: "bob",
+          loginPassword: "bob",
+          npiNumber: "1234567890"
         };
-        let notes = getData("notes");
-        if (note) {
-          notes = notes.map(n => n.id === note.id ? newNote : n);
-        } else {
-          notes.push(newNote);
-        }
-        setData("notes", notes);
-        hideNoteForm();
-        const child = getData("children").find(c => c.id === childId);
-        showNotesView(child);
-      });
-    }
-    function hideNoteForm() { document.getElementById("noteFormContainer").innerHTML = ""; }
-
-    /************************************
-     * BACK TO CHILDREN VIEW
-     ************************************/
-    function backToKidsView() {
-      document.getElementById("childrenSection").style.display = "block";
-      document.getElementById("childDetailContainer").innerHTML = "";
+        setData("serviceCoordinators", [testUser]);
+      }
+      if (!localStorage.getItem("nextChildId")) { localStorage.setItem("nextChildId", "1"); }
+      if (!localStorage.getItem("nextContactId")) { localStorage.setItem("nextContactId", "1"); }
+      if (!localStorage.getItem("nextAuthId")) { localStorage.setItem("nextAuthId", "1"); }
+      if (!localStorage.getItem("nextNoteId")) { localStorage.setItem("nextNoteId", "1"); }
+      
+      if (!localStorage.getItem("children") || getData("children").length === 0) {
+        let testChildren = [
+          { id: 1, firstName: "Jane", lastName: "Doe", nyeisId: "NY001", dob: "2018-05-10", referralDate: "2024-01-15", initialIfspDate: "2024-02-20", status: "open", coordinatorId: "bob", sex: "F", address: "123 Main St", city: "New York", state: "NY", zipCode: "10001" },
+          { id: 2, firstName: "John", lastName: "Smith", nyeisId: "NY002", dob: "2017-11-22", referralDate: "2023-12-01", initialIfspDate: "2024-01-05", status: "open", coordinatorId: "bob", sex: "M", address: "456 Park Ave", city: "Brooklyn", state: "NY", zipCode: "11201" },
+          { id: 3, firstName: "Emily", lastName: "Chen", nyeisId: "NY003", dob: "2019-02-01", referralDate: "2024-02-01", initialIfspDate: "2024-03-10", status: "open", coordinatorId: "bob", sex: "F", address: "789 Broadway", city: "Queens", state: "NY", zipCode: "11355" }
+        ];
+        setData("children", testChildren);
+      }
+      if (!localStorage.getItem("authorizations") || getData("authorizations").length === 0) {
+        let testAuthorizations = [
+          { id: 1, childId: 1, authorizationId: "AUTH2024-001", type: "EI Services", startDate: "2024-02-20", endDate: "2024-08-20", unitsApproved: 30, status: "open" },
+          { id: 2, childId: 2, authorizationId: "AUTH2024-002", type: "OT Services", startDate: "2024-01-05", endDate: "2024-07-05", unitsApproved: 25, status: "open" },
+          { id: 3, childId: 3, authorizationId: "AUTH2024-003", type: "PT Services", startDate: "2024-03-10", endDate: "2024-09-10", unitsApproved: 20, status: "open" }
+        ];
+        setData("authorizations", testAuthorizations);
+      }
+      if (!localStorage.getItem("notes") || getData("notes").length === 0) {
+        let testNotes = [
+          {
+            id: 1, childId: 1, authorizationId: "AUTH2024-001", date: "2024-03-01", startTime: "10:00", endTime: "11:00",
+            note: `Session with Jane focused on improving fine motor skills. Activities included playing with building blocks, drawing, and using scissors. Jane showed great progress and was able to complete several tasks independently.
+    
+                Next session will focus on increasing the difficulty of the activities and introducing new challenges.`,
+            category: "Billable", qaCategory: "one", eSignature: "Dr. Smith"
+          },
+          {
+            id: 2, childId: 2, authorizationId: "AUTH2024-002", date: "2024-02-10", startTime: "14:00", endTime: "15:00",
+            note: `John's OT session involved sensory integration activities to address tactile defensiveness. We used various textures and materials to help John become more comfortable with different sensations.
+    
+                He initially showed some resistance but gradually became more engaged. We will continue to work on sensory integration in future sessions.`,
+            category: "Billable", qaCategory: "two", eSignature: "Dr. Jones"
+          },
+          {
+            id: 3, childId: 3, authorizationId: "AUTH2024-003", date: "2024-04-01", startTime: "09:30", endTime: "10:30",
+            note: `Emily's PT session focused on improving gross motor skills and balance. Activities included walking on a balance beam, jumping jacks, and playing catch.
+    
+                Emily demonstrated good coordination and was able to maintain her balance throughout the session. We will continue to work on strengthening her core muscles and improving her overall stability.`,
+            category: "Billable", qaCategory: "one", eSignature: "Dr. Chen"
+          },
+          {
+            id: 4, childId: 1, authorizationId: "AUTH2024-001", date: "2024-03-15", startTime: "11:00", endTime: "12:00",
+            note: `Second session with Jane. We worked on handwriting skills and letter recognition. Jane is showing improvement in her ability to form letters correctly.
+    
+                We also practiced using a keyboard to improve her typing skills. Next session will focus on sentence construction and creative writing.`,
+            category: "Billable", qaCategory: "two", eSignature: "Dr. Smith"
+          },
+          {
+            id: 5, childId: 2, authorizationId: "AUTH2024-002", date: "2024-03-01", startTime: "15:00", endTime: "16:00",
+            note: `Another OT session with John. We continued to work on sensory integration and introduced new activities to challenge him.
+    
+                John is becoming more tolerant of different textures and is starting to enjoy the sensory activities. We will gradually increase the intensity of the activities to further improve his sensory processing skills.`,
+            category: "Billable", qaCategory: "three", eSignature: "Dr. Jones"
+          },
+          {
+            id: 6, childId: 3, authorizationId: "AUTH2024-003", date: "2024-04-15", startTime: "10:00", endTime: "11:00",
+            note: `Another PT session with Emily. We focused on improving her coordination and agility. Activities included running, skipping, and playing hopscotch.
+    
+                Emily is showing great enthusiasm and is making steady progress. We will continue to work on improving her overall physical fitness and preparing her for more advanced activities.`,
+            category: "Billable", qaCategory: "one", eSignature: "Dr. Chen"
+          }
+        ];
+        setData("notes", testNotes);
+      }
+      if (!localStorage.getItem("contacts") || getData("contacts").length === 0) {
+        let testContacts = [
+          { id: 1, childId: 1, name: "Mary Doe", phoneNumber: "212-555-1234", address: "123 Main St", email: "mary.doe@example.com", mobilePhone: "917-555-1234" },
+          { id: 2, childId: 1, name: "John Doe", phoneNumber: "212-555-5678", address: "123 Main St", email: "john.doe@example.com", mobilePhone: "917-555-5678" },
+          { id: 3, childId: 2, name: "Susan Smith", phoneNumber: "718-555-3456", address: "456 Park Ave", email: "susan.smith@example.com", mobilePhone: "347-555-3456" },
+          { id: 4, childId: 2, name: "Robert Smith", phoneNumber: "718-555-7890", address: "456 Park Ave", email: "robert.smith@example.com", mobilePhone: "347-555-7890" },
+          { id: 5, childId: 3, name: "Linda Chen", phoneNumber: "929-555-4567", address: "789 Broadway", email: "linda.chen@example.com", mobilePhone: "917-555-4567" },
+          { id: 6, childId: 3, name: "David Chen", phoneNumber: "929-555-8910", address: "789 Broadway", email: "david.chen@example.com", mobilePhone: "917-555-8910" }
+        ];
+        setData("contacts", testContacts);
+      }
     }
 
     /************************************
