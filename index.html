@@ -195,11 +195,13 @@
     /************************************
      * HELPER FUNCTIONS
      ************************************/
+    // Format a date string (yyyy-mm-dd) to MM/DD/YYYY
     function formatDate(dateStr) {
       if (!dateStr) return "";
       const parts = dateStr.split("-");
       return parts[1] + "/" + parts[2] + "/" + parts[0];
     }
+    // Format a 24-hour time (HH:MM) to 12-hour format with AM/PM
     function formatTime(timeStr) {
       if (!timeStr) return "";
       let [hour, minute] = timeStr.split(":");
@@ -209,12 +211,14 @@
       if (hour12 === 0) hour12 = 12;
       return (hour12 < 10 ? "0" + hour12 : hour12) + ":" + minute + " " + ampm;
     }
+    // Return today's date in yyyy-mm-dd format
     function getTodayDate() {
       const today = new Date();
       const mm = String(today.getMonth() + 1).padStart(2, "0");
       const dd = String(today.getDate()).padStart(2, "0");
       return today.getFullYear() + "-" + mm + "-" + dd;
     }
+    // Calculate end time given start time and a duration in minutes
     function calculateEndTime(startTime, totalMinutes) {
       const [startHour, startMin] = startTime.split(":").map(Number);
       const date = new Date();
@@ -224,29 +228,54 @@
       const mm = String(date.getMinutes()).padStart(2, "0");
       return `${hh}:${mm}`;
     }
-    function updateEndTime() {
-      const start = document.getElementById("noteStartTime").value;
-      const total = document.getElementById("noteTotalTime").value || 0;
-      document.getElementById("noteEndTime").value = calculateEndTime(start, total);
-    }
+    // Apply rich text formatting
     function applyFormat(command) {
       const noteContent = document.getElementById('noteContent');
       noteContent.focus();
       document.execCommand(command, false, null);
       noteContent.focus();
     }
-    function getEligibleAuthorizations(childId) {
-      let auths = getData("authorizations").filter(a => a.childId === childId);
-      auths.forEach(a => {
-        const notes = getData("notes").filter(n => 
-          n.childId === childId &&
-          n.authorizationId === a.authorizationId &&
-          n.category.toLowerCase() === "billable"
-        );
-        a.unitsUsed = notes.length;
-        a.unitsRemaining = a.unitsApproved - notes.length;
+    // Calculate the duration of a note in minutes
+    function calculateNoteDuration(note) {
+      const [startHour, startMinute] = note.startTime.split(":").map(Number);
+      const [endHour, endMinute] = note.endTime.split(":").map(Number);
+      return (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+    }
+    // Calculate daily billable units given an array of notes for that day
+    function calculateDailyBillableUnits(notesForDay) {
+      const totalMinutes = notesForDay.reduce((sum, note) => sum + calculateNoteDuration(note), 0);
+      if (totalMinutes < 6) return 0;
+      return Math.ceil((totalMinutes - 5) / 15);
+    }
+    // Group notes by date for a given child and authorization and calculate total billable units
+    function calculateBillableUnitsForAuthorization(childId, authId) {
+      const notes = getData("notes").filter(n =>
+        n.childId === childId &&
+        n.authorizationId === authId &&
+        n.category.toLowerCase() === "billable"
+      );
+      const notesByDate = {};
+      notes.forEach(note => {
+        if (!notesByDate[note.date]) {
+          notesByDate[note.date] = [];
+        }
+        notesByDate[note.date].push(note);
       });
-      return auths;
+      let totalUnits = 0;
+      for (let date in notesByDate) {
+        totalUnits += calculateDailyBillableUnits(notesByDate[date]);
+      }
+      return totalUnits;
+    }
+    // NEW: Helper function to get eligible authorizations for a child
+    function getEligibleAuthorizations(childId) {
+      let auths = (getData("authorizations") || []).filter(a => a.childId === childId);
+      auths = auths.map(auth => {
+        const unitsUsed = calculateBillableUnitsForAuthorization(childId, auth.authorizationId);
+        auth.unitsRemaining = auth.unitsApproved - unitsUsed;
+        return auth;
+      });
+      return auths.filter(auth => auth.status === "open" && auth.unitsRemaining > 0);
     }
     // Returns a detail header with child's info and a back button
     function getChildHeader(child) {
@@ -289,6 +318,7 @@
             <button id="dropdownButton" style="background: #fff; color: #007bff; border: none; padding: 5px 10px; cursor: pointer;">☰</button>
             <div id="dropdownMenu" style="position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #ccc; display: none; flex-direction: column; min-width: 120px;">
               <button onclick="resetApp()" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Reset</button>
+              <button id="refreshCalcBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Refresh Calculations</button>
               <button id="editProfileBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Edit Profile</button>
               <button id="logoutBtn" style="background: none; color: #007bff; border: none; padding: 5px 10px; cursor: pointer; text-align: left;">Logout</button>
             </div>
@@ -311,6 +341,7 @@
       document.getElementById("editProfileBtn").addEventListener("click", () => {
         showEditProfile();
       });
+      document.getElementById("refreshCalcBtn").addEventListener("click", refreshCalculations);
     }
     function showEditProfile() {
       document.getElementById("app").innerHTML = `
@@ -371,7 +402,7 @@
     /************************************
      * TABLE RENDERING FUNCTIONS – Separated Header and Row Updates
      ************************************/
-    // Children Table (already with filter row)
+    // Children Table with filter row
     function renderChildrenTable() {
       let children = getData("children") || [];
       children = children.filter(child => child.coordinatorId === currentUser.loginName);
@@ -518,7 +549,6 @@
       });
       updateContactsRows(child);
     }
-    // Update contacts rows (defaulting to currentContactsChild if not provided)
     function updateContactsRows(child = currentContactsChild) {
       let contacts = (getData("contacts") || []).filter(ct => ct.childId === child.id);
       const filterName = document.getElementById("filterContactName").value.trim().toLowerCase();
@@ -606,10 +636,17 @@
       });
       updateAuthRows(child);
     }
-    // Update authorizations rows (defaulting to currentAuthChild)
+    function sortAuth(key) {
+      if(authSortState.column === key) {
+        authSortState.order = authSortState.order === 'asc' ? 'desc' : 'asc';
+      } else {
+        authSortState.column = key;
+        authSortState.order = 'asc';
+      }
+      showAuthorizationsView(currentAuthChild);
+    }
     function updateAuthRows(child = currentAuthChild) {
       let auths = (getData("authorizations") || []).filter(a => a.childId === child.id);
-      const notes = getData("notes") || [];
       const filterAuthId = document.getElementById("filterAuthId").value.trim().toLowerCase();
       const filterType = document.getElementById("filterAuthType").value.trim().toLowerCase();
       const filterStart = document.getElementById("filterAuthStart").value.trim().toLowerCase();
@@ -617,7 +654,7 @@
       const filterUnits = document.getElementById("filterAuthUnits").value.trim().toLowerCase();
       const filterStatus = document.getElementById("filterAuthStatus").value.trim().toLowerCase();
       auths = auths.filter(auth => {
-        const unitsUsed = notes.filter(n => n.childId === child.id && n.authorizationId === auth.authorizationId && n.category.toLowerCase() === "billable").length;
+        const unitsUsed = calculateBillableUnitsForAuthorization(child.id, auth.authorizationId);
         auth.unitsUsed = unitsUsed;
         auth.unitsRemaining = auth.unitsApproved - unitsUsed;
         return auth.authorizationId.toLowerCase().includes(filterAuthId) &&
@@ -636,7 +673,7 @@
       }
       let rowsHtml = "";
       auths.forEach(auth => {
-        const unitsUsed = notes.filter(n => n.childId === child.id && n.authorizationId === auth.authorizationId && n.category.toLowerCase() === "billable").length;
+        const unitsUsed = calculateBillableUnitsForAuthorization(child.id, auth.authorizationId);
         const unitsRemaining = auth.unitsApproved - unitsUsed;
         rowsHtml += `<tr>
           <td>${auth.authorizationId}</td>
@@ -658,7 +695,7 @@
       });
       document.getElementById("authTableBody").innerHTML = rowsHtml;
     }
-    // Notes View with Filter Row
+    // Notes View with Filter Row (Total Time column added)
     function showNotesView(child) {
       currentNoteChild = child;
       document.getElementById("childrenSection").style.display = "none";
@@ -676,6 +713,7 @@
                 <th><input type="text" id="filterNoteDate" placeholder="Filter Date" oninput="updateNotesRows()" style="width:100%;"/></th>
                 <th><input type="text" id="filterNoteStart" placeholder="Filter Start" oninput="updateNotesRows()" style="width:100%;"/></th>
                 <th><input type="text" id="filterNoteEnd" placeholder="Filter End" oninput="updateNotesRows()" style="width:100%;"/></th>
+                <th><input type="text" id="filterNoteTotal" placeholder="Filter Total Time" oninput="updateNotesRows()" style="width:100%;"/></th>
                 <th><input type="text" id="filterNoteContent" placeholder="Filter Note" oninput="updateNotesRows()" style="width:100%;"/></th>
                 <th><input type="text" id="filterNoteCat" placeholder="Filter Category" oninput="updateNotesRows()" style="width:100%;"/></th>
                 <th><input type="text" id="filterNoteQACat" placeholder="Filter QA" oninput="updateNotesRows()" style="width:100%;"/></th>
@@ -687,6 +725,7 @@
                 <th onclick="sortNotes('date')">Date <span class="sort-indicator">${noteSortState.column==='date' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
                 <th onclick="sortNotes('startTime')">Start Time <span class="sort-indicator">${noteSortState.column==='startTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
                 <th onclick="sortNotes('endTime')">End Time <span class="sort-indicator">${noteSortState.column==='endTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
+                <th onclick="sortNotes('totalTime')">Total Time <span class="sort-indicator">${noteSortState.column==='totalTime' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
                 <th onclick="sortNotes('note')">Note <span class="sort-indicator">${noteSortState.column==='note' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
                 <th onclick="sortNotes('category')">Category <span class="sort-indicator">${noteSortState.column==='category' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
                 <th onclick="sortNotes('qaCategory')">QA Category <span class="sort-indicator">${noteSortState.column==='qaCategory' ? (noteSortState.order==='asc' ? '▲' : '▼') : ''}</span></th>
@@ -704,22 +743,33 @@
       });
       updateNotesRows(child);
     }
-    // Update notes rows (defaulting to currentNoteChild)
+    function sortNotes(key) {
+      if(noteSortState.column === key) {
+        noteSortState.order = noteSortState.order === 'asc' ? 'desc' : 'asc';
+      } else {
+        noteSortState.column = key;
+        noteSortState.order = 'asc';
+      }
+      showNotesView(currentNoteChild);
+    }
     function updateNotesRows(child = currentNoteChild) {
       let notes = (getData("notes") || []).filter(n => n.childId === child.id);
       const filterAuth = document.getElementById("filterNoteAuth").value.trim().toLowerCase();
       const filterDate = document.getElementById("filterNoteDate").value.trim().toLowerCase();
       const filterStart = document.getElementById("filterNoteStart").value.trim().toLowerCase();
       const filterEnd = document.getElementById("filterNoteEnd").value.trim().toLowerCase();
+      const filterTotal = document.getElementById("filterNoteTotal").value.trim().toLowerCase();
       const filterContent = document.getElementById("filterNoteContent").value.trim().toLowerCase();
       const filterCat = document.getElementById("filterNoteCat").value.trim().toLowerCase();
       const filterQACat = document.getElementById("filterNoteQACat").value.trim().toLowerCase();
       const filterESign = document.getElementById("filterNoteESign").value.trim().toLowerCase();
       notes = notes.filter(n => {
+        const total = calculateNoteDuration(n);
         return n.authorizationId.toLowerCase().includes(filterAuth) &&
                formatDate(n.date).toLowerCase().includes(filterDate) &&
                formatTime(n.startTime).toLowerCase().includes(filterStart) &&
                formatTime(n.endTime).toLowerCase().includes(filterEnd) &&
+               total.toString().includes(filterTotal) &&
                n.note.toLowerCase().includes(filterContent) &&
                n.category.toLowerCase().includes(filterCat) &&
                n.qaCategory.toLowerCase().includes(filterQACat) &&
@@ -727,18 +777,27 @@
       });
       if(noteSortState.column) {
         notes.sort((a, b) => {
-          const valA = a[noteSortState.column] || "";
-          const valB = b[noteSortState.column] || "";
-          return noteSortState.order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          let valA, valB;
+          if (noteSortState.column === 'totalTime') {
+            valA = calculateNoteDuration(a);
+            valB = calculateNoteDuration(b);
+            return noteSortState.order === 'asc' ? valA - valB : valB - valA;
+          } else {
+            valA = a[noteSortState.column] || "";
+            valB = b[noteSortState.column] || "";
+            return noteSortState.order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          }
         });
       }
       let rowsHtml = "";
       notes.forEach(note => {
+        const total = calculateNoteDuration(note);
         rowsHtml += `<tr>
           <td>${note.authorizationId}</td>
           <td>${formatDate(note.date)}</td>
           <td>${formatTime(note.startTime)}</td>
           <td>${formatTime(note.endTime)}</td>
+          <td>${total}</td>
           <td>${note.note}</td>
           <td>${note.category}</td>
           <td>${note.qaCategory}</td>
@@ -1037,8 +1096,8 @@
       const note = noteId ? getData("notes").find(n => n.id === noteId) : null;
       const currentTime = note ? note.startTime : new Date().toTimeString().substring(0,5);
       const defaultDate = getTodayDate();
-      const defaultTotalTime = note ? "" : "0";
-      const defaultEndTime = calculateEndTime(currentTime, defaultTotalTime);
+      // For new notes, default end time is 30 minutes after start time.
+      const defaultEndTime = note ? note.endTime : calculateEndTime(currentTime, 30);
       let eligibleAuths = getEligibleAuthorizations(childId);
       eligibleAuths.sort((a, b) => b.unitsRemaining - a.unitsRemaining);
       let optionsHtml = "";
@@ -1070,10 +1129,8 @@
           <input type="date" id="noteDate" required value="${note ? note.date : defaultDate}"/>
           <label for="noteStartTime">Start Time:</label>
           <input type="time" id="noteStartTime" required value="${note ? note.startTime : currentTime}"/>
-          <label for="noteTotalTime">Total Time (minutes):</label>
-          <input type="number" id="noteTotalTime" placeholder="Enter duration in minutes" value="${note ? "" : defaultTotalTime}" />
           <label for="noteEndTime">End Time:</label>
-          <input type="time" id="noteEndTime" readonly value="${note ? note.endTime : defaultEndTime}" />
+          <input type="time" id="noteEndTime" required value="${note ? note.endTime : defaultEndTime}" />
           <label for="noteContent">Note:</label>
           <div id="noteToolbar">
             <button type="button" onclick="applyFormat('bold')" title="Bold"><b>B</b></button>
@@ -1105,16 +1162,13 @@
       if(defaultAuthId !== "") {
         document.getElementById("noteAuthorizationId").value = defaultAuthId;
       }
-      document.getElementById("noteStartTime").addEventListener("change", updateEndTime);
-      document.getElementById("noteTotalTime").addEventListener("input", updateEndTime);
       document.getElementById("noteForm").addEventListener("submit", function(e) {
         e.preventDefault();
-        const selectedAuthId = document.getElementById("noteAuthorizationId").value;
-        const noteDate = document.getElementById("noteDate").value;
-        const auth = getData("authorizations").find(a => a.authorizationId === selectedAuthId);
-        if (noteDate < auth.startDate || noteDate > auth.endDate) {
-          document.getElementById("noteFormError").textContent = 
-            `Error: Note date must be between ${formatDate(auth.startDate)} and ${formatDate(auth.endDate)}. Please select a different authorization or change the note date.`;
+        // Validate that end time is after start time.
+        const startTime = document.getElementById("noteStartTime").value;
+        const endTime = document.getElementById("noteEndTime").value;
+        if (endTime <= startTime) {
+          document.getElementById("noteFormError").textContent = "Error: End time must be after start time.";
           return;
         }
         document.getElementById("noteFormError").textContent = "";
@@ -1151,6 +1205,25 @@
     function backToKidsView() {
       document.getElementById("childrenSection").style.display = "block";
       document.getElementById("childDetailContainer").innerHTML = "";
+    }
+
+    /************************************
+     * REFRESH CALCULATIONS FUNCTION
+     ************************************/
+    function refreshCalculations() {
+      if(document.getElementById("childDetailContainer").innerHTML.trim() !== "") {
+        if (currentAuthChild) {
+          showAuthorizationsView(currentAuthChild);
+        } else if (currentContactsChild) {
+          showContactsView(currentContactsChild);
+        } else if (currentNoteChild) {
+          showNotesView(currentNoteChild);
+        } else {
+          renderChildrenTable();
+        }
+      } else {
+        renderChildrenTable();
+      }
     }
 
     /************************************
@@ -1275,7 +1348,6 @@
      * INIT LOCAL STORAGE & SAMPLE DATA
      ************************************/
     function initLocalStorage() {
-      // Updated Test User with full data and name Bob Dillian
       if (!localStorage.getItem("serviceCoordinators")) {
         const testUser = {
           firstName: "Bob",
